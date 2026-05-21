@@ -1,0 +1,8 @@
+names:
+  0: barcode
+  1: logo
+  2: flavor_text
+  3: dotted_label
+path: D:\Codes\AI Detection Model\data\products
+train: images/train
+val: images/val
