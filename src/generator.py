@@ -77,14 +77,12 @@ class DottedLabelGenerator:
                 final[:, x] = cv2.warpAffine(final[:, x:x+1], M, (1, h))[:, 0]
 
         # Add glare (Gaussian light spot)
-        glare = np.zeros((h, w), dtype=np.uint8)
         cx, cy = random.randint(0, w), random.randint(0, h)
         strength = random.randint(50, 150)
-        for i in range(h):
-            for j in range(w):
-                dist = np.sqrt((i-cy)**2 + (j-cx)**2)
-                glare[i, j] = max(0, strength - dist * 0.5)
-        
+        ys, xs = np.ogrid[:h, :w]
+        dist = np.sqrt((ys - cy) ** 2 + (xs - cx) ** 2)
+        glare = np.clip(strength - dist * 0.5, 0, 255).astype(np.uint8)
+
         final = cv2.addWeighted(final, 1.0, glare, 0.5, 0)
         
         return final

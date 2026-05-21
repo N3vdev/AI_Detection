@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import time
 from ultralytics import YOLO
+from pyzbar.pyzbar import decode as decode_barcodes
 from src.ocr_model import CRNN
 
 class IndustrialAIController:
@@ -37,15 +38,12 @@ class IndustrialAIController:
         }
 
         # Step 1: Rapid Barcode Scan on all 4 frames
-        # In a real setup, we'd use a dedicated barcode lib for speed
         for i, frame in enumerate(camera_frames):
-            # Check for barcode in this frame
-            detection = self.detector(frame, verbose=False)[0]
-            # Assuming 'barcode' is class index 0 in our custom YOLO
-            # For now, we simulate finding a barcode
-            if False: # Replace with actual detection logic
-                final_result["barcode"] = "890123456789"
+            barcode_value = self._scan_barcode(frame)
+            if barcode_value:
+                final_result["barcode"] = barcode_value
                 final_result["status"] = "Complete (Barcode Path)"
+                print(f"[Barcode] Found on camera {i}: {barcode_value}")
                 return final_result
 
         # Step 2: Full Vision Path (if no barcode)
@@ -73,6 +71,68 @@ class IndustrialAIController:
         elapsed = (time.time() - start_time) * 1000
         print(f"[System] Cycle Time: {elapsed:.2f}ms")
         return final_result
+
+    def _try_decode(self, img):
+        results = decode_barcodes(img)
+        return results[0].data.decode("utf-8") if results else None
+
+    def _preprocess_variants(self, frame):
+        """
+        Yields preprocessed versions of a frame, cheapest first.
+        Each variant targets a different failure mode.
+        """
+        # Raw — fastest, works when image is already clean
+        yield frame
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Grayscale — removes color noise
+        yield gray
+
+        # CLAHE — recovers contrast lost to uneven conveyor lighting
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        yield clahe.apply(gray)
+
+        # Sharpen — helps with motion blur from belt movement
+        kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)
+        yield cv2.filter2D(gray, -1, kernel)
+
+        # Otsu threshold — handles high-contrast packaging with heavy shadows
+        _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        yield otsu
+
+        # Adaptive threshold — handles glare spots and uneven illumination
+        yield cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+        )
+
+        # Denoise + CLAHE — for noisy/low-light camera feeds
+        denoised = cv2.fastNlMeansDenoising(gray, h=10)
+        yield clahe.apply(denoised)
+
+    def _scan_barcode(self, frame):
+        """
+        Tries pyzbar against multiple preprocessed versions of the frame.
+        Falls back to rotated variants for products sitting at an angle on the belt.
+        Returns decoded string or None.
+        """
+        for variant in self._preprocess_variants(frame):
+            result = self._try_decode(variant)
+            if result:
+                return result
+
+        # Rotation fallback — for products not sitting square on the belt
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        h, w = gray.shape
+        center = (w // 2, h // 2)
+        for angle in [-15, -10, -5, 5, 10, 15]:
+            M = cv2.getRotationMatrix2D(center, angle, 1.0)
+            rotated = cv2.warpAffine(gray, M, (w, h))
+            result = self._try_decode(rotated)
+            if result:
+                return result
+
+        return None
 
     def read_dotted_label(self, crop):
         # Preprocess
