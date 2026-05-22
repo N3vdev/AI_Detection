@@ -73,8 +73,23 @@ class IndustrialAIController:
         return final_result
 
     def _try_decode(self, img):
+        # pyzbar
         results = decode_barcodes(img)
-        return results[0].data.decode("utf-8") if results else None
+        if results:
+            return results[0].data.decode("utf-8")
+
+        # OpenCV barcode detector fallback — handles cylindrical/curved distortion better
+        try:
+            detector = cv2.barcode.BarcodeDetector()
+            ok, decoded, _, _ = detector.detectAndDecodeMulti(img)
+            if ok:
+                for val in decoded:
+                    if val:
+                        return val
+        except AttributeError:
+            pass  # opencv-contrib not installed
+
+        return None
 
     def _preprocess_variants(self, frame):
         """
