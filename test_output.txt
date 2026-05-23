@@ -1,0 +1,37 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+
+[System] Initializing AI Inspection Pipeline...
+[System] Barcode detector loaded.
+[System] Loading Qwen2-VL (Qwen/Qwen2-VL-2B-Instruct)...
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]
+Fetching 2 files: 100%|##########| 2/2 [00:00<00:00, 1877.07it/s]
+
+Loading weights:   0%|          | 0/729 [00:00<?, ?it/s]
+Loading weights:   4%|3         | 28/729 [00:00<00:03, 228.87it/s]
+Loading weights:   7%|6         | 51/729 [00:00<00:02, 227.26it/s]
+Loading weights:  10%|#         | 74/729 [00:00<00:03, 196.83it/s]
+Loading weights:  14%|#3        | 101/729 [00:00<00:03, 206.28it/s]
+Loading weights:  19%|#8        | 137/729 [00:00<00:02, 242.24it/s]
+Loading weights:  23%|##3       | 171/729 [00:00<00:02, 270.75it/s]
+Loading weights:  27%|##7       | 199/729 [00:00<00:01, 265.53it/s]
+Loading weights:  32%|###1      | 232/729 [00:00<00:01, 278.80it/s]
+Loading weights:  36%|###5      | 261/729 [00:01<00:01, 274.85it/s]
+Loading weights:  40%|###9      | 291/729 [00:01<00:01, 280.90it/s]
+Loading weights:  44%|####4     | 323/729 [00:01<00:01, 288.19it/s]
+Loading weights:  52%|#####2    | 382/729 [00:01<00:00, 372.14it/s]
+Loading weights:  62%|######2   | 454/729 [00:01<00:00, 455.84it/s]
+Loading weights:  72%|#######2  | 526/729 [00:01<00:00, 519.52it/s]
+Loading weights:  82%|########2 | 598/729 [00:01<00:00, 574.64it/s]
+Loading weights:  92%|#########1| 668/729 [00:01<00:00, 607.03it/s]
+Loading weights: 100%|##########| 729/729 [00:01<00:00, 599.80it/s]
+Loading weights: 100%|##########| 729/729 [00:01<00:00, 390.57it/s]
+
+[System] Qwen2-VL loaded.
+[System] Loading GOT-OCR2 (stepfun-ai/GOT-OCR-2.0-hf)...
+Loading weights:   0%|          | 0/471 [00:00<?, ?it/s]
+Loading weights:  16%|#5        | 75/471 [00:00<00:00, 741.13it/s]
+Loading weights:  34%|###3      | 159/471 [00:00<00:00, 775.60it/s]
+Loading weights:  52%|#####1    | 243/471 [00:00<00:00, 800.82it/s]
+Loading weights:  75%|#######5  | 354/471 [00:00<00:00, 920.77it/s]
+Loading weights: 100%|##########| 471/471 [00:00<00:00, 949.73it/s]
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.

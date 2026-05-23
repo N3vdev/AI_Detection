@@ -1,0 +1,11 @@
+torch
+torchvision
+numpy
+opencv-contrib-python
+Pillow
+pyyaml
+pyzbar
+ultralytics
+huggingface-hub
+transformers
+accelerate
