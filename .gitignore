@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# HuggingFace model cache (multi-GB, auto-downloaded on first run)
+.cache/
+~/.cache/huggingface/
+
+# Test outputs
+test_output.txt
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

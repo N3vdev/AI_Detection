@@ -53,12 +53,19 @@ class AIInspectionSystem:
             print(f"[Warning] Barcode model not found: {barcode_model_path}")
 
         # ── Qwen2-VL-2B — visual product understanding ─────────────────────────
+        # max_pixels caps visual tokens to ~512 patches (≈634×634 px equivalent).
+        # Default is 16384 patches (~12 MP) which is 32× slower for no accuracy gain on labels.
         print(f"[System] Loading Qwen2-VL ({qwen_model_id})...")
-        self.qwen_processor = Qwen2VLProcessor.from_pretrained(qwen_model_id)
+        self.qwen_processor = Qwen2VLProcessor.from_pretrained(
+            qwen_model_id,
+            min_pixels=4 * 28 * 28,
+            max_pixels=512 * 28 * 28,
+        )
         self.qwen_model = Qwen2VLForConditionalGeneration.from_pretrained(
             qwen_model_id,
             torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
         ).to(self.device).eval()
+        torch.set_num_threads(os.cpu_count() or 4)
         print("[System] Qwen2-VL loaded.")
 
         # ── CRNN — custom dotted/inkjet label reader ───────────────────────────
@@ -79,6 +86,13 @@ class AIInspectionSystem:
 
     def _qwen_extract(self, img_bgr):
         img_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+        # Downscale to max 640px — Qwen2-VL reads labels fine at this resolution
+        if max(img_pil.size) > 640:
+            ratio = 640 / max(img_pil.size)
+            img_pil = img_pil.resize(
+                (int(img_pil.width * ratio), int(img_pil.height * ratio)),
+                Image.LANCZOS,
+            )
         messages = [
             {
                 "role": "user",
@@ -95,9 +109,9 @@ class AIInspectionSystem:
             text=[text], images=[img_pil], return_tensors="pt"
         ).to(self.device)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             output_ids = self.qwen_model.generate(
-                **inputs, max_new_tokens=200, do_sample=False
+                **inputs, max_new_tokens=150, do_sample=False
             )
 
         response = self.qwen_processor.batch_decode(
@@ -154,7 +168,7 @@ class AIInspectionSystem:
         t = torch.from_numpy(
             (gray.astype(np.float32) / 255.0 - 0.5) / 0.5
         ).unsqueeze(0).unsqueeze(0)
-        with torch.no_grad():
+        with torch.inference_mode():
             preds = self.crnn(t)
             _, idx = torch.max(preds, 2)
             idx = idx.permute(1, 0).cpu().numpy()[0]

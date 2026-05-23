@@ -1,11 +1,26 @@
+# ── Core ML ───────────────────────────────────────────────────────────────────
 torch
 torchvision
-numpy
+accelerate
+
+# ── Vision / Language Models ──────────────────────────────────────────────────
+# Qwen2-VL-2B-Instruct (downloaded automatically on first run from HuggingFace)
+transformers>=4.45.0
+huggingface-hub
+sentencepiece
+tiktoken
+
+# ── Computer Vision ───────────────────────────────────────────────────────────
+# opencv-contrib required (not plain opencv-python) for cv2.barcode.BarcodeDetector
 opencv-contrib-python
 Pillow
-pyyaml
-pyzbar
+numpy
+
+# ── Barcode Detection ─────────────────────────────────────────────────────────
+# Piero2411 YOLOv8 barcode detector (models/barcode_detector.pt)
 ultralytics
-huggingface-hub
-transformers
-accelerate
+# pyzbar requires ZBar DLL on Windows: https://pypi.org/project/pyzbar/
+pyzbar
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+pyyaml
