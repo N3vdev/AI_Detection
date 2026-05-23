@@ -1,0 +1,7 @@
+i am creating a AI Detection tool that will monitor live feed from a conveyer belt where it has 3 cameras which will have live capture of the products passing through
+
+but now the main flow is 
+phase 1 barcode check if the product has barcode then extract the barcode and if it doesnt it moves to phase 2
+where it will identify the product name, company name, item expiry, manufacturing dates etc (now for these the dated labels are mostly dotted labels where most OCR Fail to extract, so i want a AI Model that can detect it properly with 100% accuracy, currently the barcode is working but the rest of the features arent working how do i fix it? also i'll have one file where i can test images directly so that i dont need to have a live camera for testing purpose
+
+i want to create a model that will detect everything properly like a proper AI extraction model, that detects everything quickly, use a pretrained model for YOLO or anything, i want it to work 100%
