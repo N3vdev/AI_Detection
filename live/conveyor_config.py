@@ -19,7 +19,7 @@ TRIGGER_ROI_Y_BAND = (0.25, 0.75)       # Vertical band
 TRIGGER_ROI_X_CENTER_BAND = (0.3, 0.7) # Horizontal band — "product is centered"
 
 TRIGGER_CONFIDENCE_THRESHOLD = 0.55     # YOLO detection confidence minimum
-TRIGGER_MIN_GAP_FRAMES = 15            # Cooldown after a product exits (~0.5s at 30fps)
+TRIGGER_MIN_GAP_FRAMES = 20            # Consecutive empty YOLO checks before re-arming (~2s)
 TRIGGER_CHECK_EVERY_N_FRAMES = 3        # Run YOLO every Nth frame to save CPU
 
 # ── Frame Buffer ───────────────────────────────────────────────────────────────

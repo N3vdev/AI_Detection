@@ -31,17 +31,13 @@ class TriggerDetector:
         self.min_gap_frames = min_gap_frames
 
         self._state = _IDLE
-        self._cooldown = 0
+        self._clear_count = 0  # consecutive empty-zone detections after firing
 
     def process_frame(self, frame, frame_count):
         """
         Call this on every frame from the trigger camera.
         Returns True exactly once per product (when it is centered).
         """
-        if self._cooldown > 0:
-            self._cooldown -= 1
-            return False
-
         if frame_count % self.check_every_n != 0:
             return False
 
@@ -76,25 +72,32 @@ class TriggerDetector:
         if self._state == _IDLE:
             if centroid is not None:
                 self._state = _ENTERING
+                self._clear_count = 0
 
         elif self._state == _ENTERING:
             if centroid is None:
                 self._state = _IDLE
             elif x_lo <= centroid[0] <= x_hi:
                 self._state = _CENTERED
-                fired = True  # Product is centered — take snapshot now
+                fired = True  # fire exactly once
 
         elif self._state == _CENTERED:
-            if centroid is None or centroid[0] > x_hi:
+            if centroid is None or not (x_lo <= centroid[0] <= x_hi):
                 self._state = _EXITING
+                self._clear_count = 0
 
         elif self._state == _EXITING:
             if centroid is None:
-                self._state = _IDLE
-                self._cooldown = self.min_gap_frames
+                self._clear_count += 1
+                # Re-arm only after zone has been empty for min_gap_frames checks
+                if self._clear_count >= self.min_gap_frames:
+                    self._state = _IDLE
+                    self._clear_count = 0
+            else:
+                self._clear_count = 0  # product still visible — keep waiting
 
         return fired
 
     def reset(self):
         self._state = _IDLE
-        self._cooldown = 0
+        self._clear_count = 0
