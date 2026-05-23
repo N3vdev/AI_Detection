@@ -4,12 +4,13 @@ import time
 
 
 class CameraThread(threading.Thread):
-    def __init__(self, camera_index, resolution, fps, frame_buffer):
+    def __init__(self, camera_index, resolution, fps, frame_buffer, rotate=None):
         super().__init__(daemon=True, name=f"Camera-{camera_index}")
         self.camera_index = camera_index
         self.resolution = resolution
         self.fps = fps
         self.buffer = frame_buffer
+        self.rotate = rotate          # e.g. cv2.ROTATE_90_CLOCKWISE
         self._stop_event = threading.Event()
         self._cap = None
 
@@ -47,6 +48,8 @@ class CameraThread(threading.Thread):
                 continue
 
             consecutive_failures = 0
+            if self.rotate is not None:
+                frame = cv2.rotate(frame, self.rotate)
             self.buffer.push(frame, time.monotonic())
 
         self._cap.release()

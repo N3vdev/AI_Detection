@@ -11,13 +11,22 @@ CAMERA_INDICES = ["http://192.168.1.5:8080/video"]   # ← replace with your pho
 CAMERA_RESOLUTION = (1280, 720)
 CAMERA_FPS = 30
 
+# Rotate frames after capture — fixes portrait phone streams arriving as landscape
+# Options: cv2.ROTATE_90_CLOCKWISE | cv2.ROTATE_90_COUNTERCLOCKWISE | cv2.ROTATE_180 | None
+import cv2 as _cv2
+CAMERA_ROTATE = _cv2.ROTATE_90_CLOCKWISE   # phone portrait → upright in preview
+
+# Preview window size (small, so it doesn't take up the whole screen)
+PREVIEW_WIDTH  = 360
+PREVIEW_HEIGHT = 640
+
 # ── Trigger Camera ─────────────────────────────────────────────────────────────
 TRIGGER_CAMERA_INDEX = 0            # Index into CAMERA_INDICES list
 YOLO_TRIGGER_MODEL = "yolov8n.pt"   # Auto-downloads via ultralytics
 
 # Trigger zone — normalized (0.0–1.0). Wide zone catches products at any position.
-TRIGGER_ROI_Y_BAND = (0.1, 0.9)
-TRIGGER_ROI_X_CENTER_BAND = (0.1, 0.9)
+TRIGGER_ROI_Y_BAND = (0.0, 1.0)
+TRIGGER_ROI_X_CENTER_BAND = (0.0, 1.0)
 
 TRIGGER_CONFIDENCE_THRESHOLD = 0.3  # Low threshold — catches boxes, bags, bottles etc.
 TRIGGER_MIN_GAP_FRAMES = 20         # Consecutive empty checks before re-arming (~2s)

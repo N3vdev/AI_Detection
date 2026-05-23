@@ -19,7 +19,8 @@ class ConveyorSystem:
             for _ in config.CAMERA_INDICES
         ]
         self._cameras = [
-            CameraThread(idx, config.CAMERA_RESOLUTION, config.CAMERA_FPS, buf)
+            CameraThread(idx, config.CAMERA_RESOLUTION, config.CAMERA_FPS, buf,
+                         rotate=getattr(config, 'CAMERA_ROTATE', None))
             for idx, buf in zip(config.CAMERA_INDICES, self._buffers)
         ]
         self._assembler = FrameAssembler(
@@ -71,11 +72,10 @@ class ConveyorSystem:
         frame_count = 0
         last_fired_ts = 0
 
-        h_res, w_res = config.CAMERA_RESOLUTION[1], config.CAMERA_RESOLUTION[0]
-        x1_zone = int(config.TRIGGER_ROI_X_CENTER_BAND[0] * w_res)
-        x2_zone = int(config.TRIGGER_ROI_X_CENTER_BAND[1] * w_res)
-        y1_zone = int(config.TRIGGER_ROI_Y_BAND[0] * h_res)
-        y2_zone = int(config.TRIGGER_ROI_Y_BAND[1] * h_res)
+        pw = getattr(config, 'PREVIEW_WIDTH', 360)
+        ph = getattr(config, 'PREVIEW_HEIGHT', 640)
+        cv2.namedWindow("Conveyor Inspection", cv2.WINDOW_NORMAL)
+        cv2.resizeWindow("Conveyor Inspection", pw, ph)
 
         print("[Conveyor] Running — place products in the camera view.")
         print("[Conveyor] Press Q in preview window or Ctrl+C to stop.\n")
@@ -109,18 +109,21 @@ class ConveyorSystem:
 
                 # ── Preview window ──────────────────────────────────────────
                 try:
-                    preview = frame.copy()
+                    preview = cv2.resize(frame, (pw, ph))
                     flashing = (time.monotonic() - last_fired_ts) < 0.5
                     zone_color = (0, 255, 0) if flashing else (0, 200, 255)
 
-                    # Show trigger zone box
-                    cv2.rectangle(preview, (x1_zone, y1_zone), (x2_zone, y2_zone), zone_color, 2)
+                    # Flash border on trigger
+                    if flashing:
+                        cv2.rectangle(preview, (0, 0), (pw - 1, ph - 1), (0, 255, 0), 4)
 
-                    status = "SCANNING..." if flashing else ("ARMED" if not self._trigger._triggered else "WAITING — remove product")
-                    cv2.putText(preview, f"#{seq}  Queue:{self._inspection_queue.qsize()}  {status}",
-                                (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                    cv2.putText(preview, "Place product in box | Q to quit",
-                                (10, h_res - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1)
+                    status = "SCANNING" if flashing else ("ARMED" if not self._trigger._triggered else "REMOVE PRODUCT")
+                    cv2.putText(preview, f"#{seq}  Q:{self._inspection_queue.qsize()}",
+                                (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                    cv2.putText(preview, status,
+                                (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, zone_color, 2)
+                    cv2.putText(preview, "Q = quit",
+                                (8, ph - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (160, 160, 160), 1)
 
                     cv2.imshow("Conveyor Inspection", preview)
                     key = cv2.waitKey(1) & 0xFF
