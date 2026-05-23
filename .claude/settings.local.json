@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(dir datasynthetic *)",
+      "Bash(C:\\\\Users\\\\nevin\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Codes-AI-Detection-Model\\\\0c73f48d-3883-407b-ab1d-854192db9046\\\\tasks\\\\buqj750mg.output *)"
+    ]
+  }
+}
