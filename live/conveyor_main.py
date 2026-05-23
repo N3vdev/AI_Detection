@@ -100,21 +100,24 @@ class ConveyorSystem:
                         print(f"[Conveyor] WARNING: Queue full — product #{seq} dropped. Slow down the belt.")
 
                 # ── Preview window ─────────────────────────────────────────
-                preview = frame.copy()
-                flashing = (time.monotonic() - last_fired_flash) < 0.4
-                zone_color = (0, 255, 0) if flashing else (0, 200, 255)
-                cv2.rectangle(preview, (x1_zone, y1_zone), (x2_zone, y2_zone), zone_color, 2)
-                label = f"Products: {seq}  Queue: {self._inspection_queue.qsize()}"
-                cv2.putText(preview, label, (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-                cv2.putText(preview, "Move product into box to scan | Q to quit",
-                            (10, h_res - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1)
-                cv2.imshow("Conveyor Inspection", preview)
-
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord('q'):
-                    print("\n[Conveyor] Quit by user.")
-                    break
+                try:
+                    preview = frame.copy()
+                    flashing = (time.monotonic() - last_fired_flash) < 0.4
+                    zone_color = (0, 255, 0) if flashing else (0, 200, 255)
+                    cv2.rectangle(preview, (x1_zone, y1_zone), (x2_zone, y2_zone), zone_color, 2)
+                    label = f"Products: {seq}  Queue: {self._inspection_queue.qsize()}"
+                    cv2.putText(preview, label, (10, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+                    cv2.putText(preview, "Move product into box to scan | Q to quit",
+                                (10, h_res - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1)
+                    cv2.imshow("Conveyor Inspection", preview)
+                    key = cv2.waitKey(1) & 0xFF
+                    if key == ord('q'):
+                        print("\n[Conveyor] Quit by user.")
+                        break
+                except cv2.error:
+                    # GUI not available — run headless, use Ctrl+C to stop
+                    pass
 
                 time.sleep(0.005)
 
