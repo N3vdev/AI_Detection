@@ -15,10 +15,14 @@ class CameraThread(threading.Thread):
 
     def _open(self):
         cap = cv2.VideoCapture(self.camera_index)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
-        cap.set(cv2.CAP_PROP_FPS, self.fps)
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # minimize internal buffer lag
+        if isinstance(self.camera_index, int):
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
+            cap.set(cv2.CAP_PROP_FPS, self.fps)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        else:
+            # IP stream — resolution/fps set by the app, buffer size not applicable
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         return cap
 
     def run(self):

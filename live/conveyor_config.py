@@ -1,5 +1,13 @@
 # ── Camera Setup ───────────────────────────────────────────────────────────────
-CAMERA_INDICES = [1]                # cv2.VideoCapture device indices (phone via Link to Windows)
+# Camera sources — use integer for USB/device, or URL string for IP stream
+# IP Webcam (Android): install app → Start server → use the URL shown on screen
+# Examples:
+#   Single phone over WiFi : ["http://192.168.1.5:8080/video"]
+#   3 cameras (conveyor)   : ["http://192.168.1.5:8080/video",
+#                             "http://192.168.1.6:8080/video",
+#                             "http://192.168.1.7:8080/video"]
+#   USB webcam             : [0]  or  [0, 1, 2]
+CAMERA_INDICES = ["http://192.168.1.5:8080/video"]   # ← replace with your phone's IP
 CAMERA_RESOLUTION = (1280, 720)     # Width x Height
 CAMERA_FPS = 30
 
