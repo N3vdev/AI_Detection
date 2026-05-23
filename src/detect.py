@@ -54,13 +54,8 @@ class AIInspectionSystem:
 
         # ── Qwen2-VL-2B — visual product understanding ─────────────────────────
         # max_pixels caps visual tokens to ~512 patches (≈634×634 px equivalent).
-        # Default is 16384 patches (~12 MP) which is 32× slower for no accuracy gain on labels.
         print(f"[System] Loading Qwen2-VL ({qwen_model_id})...")
-        self.qwen_processor = Qwen2VLProcessor.from_pretrained(
-            qwen_model_id,
-            min_pixels=4 * 28 * 28,
-            max_pixels=512 * 28 * 28,
-        )
+        self.qwen_processor = Qwen2VLProcessor.from_pretrained(qwen_model_id)
         self.qwen_model = Qwen2VLForConditionalGeneration.from_pretrained(
             qwen_model_id,
             torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
@@ -86,13 +81,6 @@ class AIInspectionSystem:
 
     def _qwen_extract(self, img_bgr):
         img_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
-        # Downscale to max 640px — Qwen2-VL reads labels fine at this resolution
-        if max(img_pil.size) > 640:
-            ratio = 640 / max(img_pil.size)
-            img_pil = img_pil.resize(
-                (int(img_pil.width * ratio), int(img_pil.height * ratio)),
-                Image.LANCZOS,
-            )
         messages = [
             {
                 "role": "user",
