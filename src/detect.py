@@ -1,6 +1,7 @@
 import cv2
 import re
 import os
+import time
 import torch
 import numpy as np
 from PIL import Image
@@ -60,7 +61,7 @@ class AIInspectionSystem:
         self,
         barcode_model_path='models/barcode_detector.pt',
         ocr_model_path='models/dotted_ocr_retrained.pth',
-        qwen_model_id='Qwen/Qwen2.5-VL-7B-Instruct',
+        qwen_model_id='Qwen/Qwen2.5-VL-3B-Instruct',
     ):
         print("[System] Initializing AI Inspection Pipeline...")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -114,6 +115,11 @@ class AIInspectionSystem:
         self.qwen_model = _VLModel.from_pretrained(qwen_model_id, **load_kwargs).eval()
         print(f"[System] {qwen_model_id} loaded.")
 
+        # Limit image tokens: each image capped at ~640×640 equivalent
+        # Prevents full-res photos from generating thousands of vision tokens
+        self.qwen_processor.image_processor.max_pixels = 640 * 28 * 28
+        self.qwen_processor.image_processor.min_pixels = 4 * 28 * 28
+
         # ── CRNN dotted/inkjet label reader ────────────────────────────────────
         self.alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/-.: "
         self.crnn = CRNN(32, 1, len(self.alphabet) + 1, 256)
@@ -132,10 +138,6 @@ class AIInspectionSystem:
     # ── Qwen2.5-VL — single call with ALL images ───────────────────────────────
 
     def _qwen_extract(self, pil_images):
-        """
-        Pass all product images in one call.
-        Qwen2.5-VL sees every angle simultaneously and extracts the best data.
-        """
         content = []
         for img in pil_images:
             content.append({"type": "image", "image": img})
@@ -145,20 +147,27 @@ class AIInspectionSystem:
         text = self.qwen_processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
+
+        t0 = time.time()
+        print(f"[Qwen] Tokenizing {len(pil_images)} image(s)...")
         inputs = self.qwen_processor(
             text=[text], images=pil_images, return_tensors="pt"
         ).to(self.device)
+        n_tokens = inputs.input_ids.shape[1]
+        print(f"[Qwen] Input tokens: {n_tokens} — running inference...")
 
         with torch.inference_mode():
             output_ids = self.qwen_model.generate(
-                **inputs, max_new_tokens=100, do_sample=False
+                **inputs, max_new_tokens=64, do_sample=False
             )
+
+        elapsed = time.time() - t0
         response = self.qwen_processor.batch_decode(
             output_ids[:, inputs.input_ids.shape[1]:],
             skip_special_tokens=True,
         )[0].strip()
 
-        print(f"[Qwen2.5-VL] Response:\n{response}\n")
+        print(f"[Qwen] Done in {elapsed:.1f}s\nResponse:\n{response}\n")
         return self._parse_response(response)
 
     def _parse_response(self, response):
