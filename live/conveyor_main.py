@@ -30,10 +30,9 @@ class ConveyorSystem:
         )
         self._trigger = TriggerDetector(
             yolo_model_path=config.YOLO_TRIGGER_MODEL,
-            roi_y_band=config.TRIGGER_ROI_Y_BAND,
-            roi_x_center_band=config.TRIGGER_ROI_X_CENTER_BAND,
             confidence_threshold=config.TRIGGER_CONFIDENCE_THRESHOLD,
-            check_every_n_frames=config.TRIGGER_CHECK_EVERY_N_FRAMES,
+            enter_frames=config.TRIGGER_ENTER_FRAMES,
+            leave_frames=config.TRIGGER_LEAVE_FRAMES,
         )
         self._inspection_queue = queue.Queue(maxsize=config.INSPECTION_QUEUE_MAX)
         self._writer = ResultWriter(config.DB_PATH, config.JSON_LOG_PATH)
@@ -86,7 +85,7 @@ class ConveyorSystem:
                     time.sleep(0.005)
                     continue
 
-                fired = self._trigger.process_frame(frame, frame_count)
+                fired = self._trigger.process_frame(frame)
                 frame_count += 1
 
                 if fired:
@@ -116,7 +115,12 @@ class ConveyorSystem:
                     if flashing:
                         cv2.rectangle(preview, (0, 0), (pw - 1, ph - 1), (0, 255, 0), 4)
 
-                    status = "SCANNING" if flashing else "READY"
+                    if flashing:
+                        status = "SCANNING"
+                    elif self._trigger.product_in_frame:
+                        status = "IN FRAME — REMOVE"
+                    else:
+                        status = "READY"
                     cv2.putText(preview, f"#{seq}  Q:{self._inspection_queue.qsize()}",
                                 (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                     cv2.putText(preview, status,
