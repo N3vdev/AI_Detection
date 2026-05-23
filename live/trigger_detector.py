@@ -6,9 +6,10 @@ class TriggerDetector:
     def __init__(
         self,
         yolo_model_path="yolov8n.pt",
-        confidence_threshold=0.20,
-        enter_frames=3,    # consecutive detections to confirm product entered
-        leave_frames=8,    # consecutive empty frames to confirm product left
+        confidence_threshold=0.30,
+        min_box_area=0.05,    # object must cover at least 5% of frame to count
+        enter_frames=3,
+        leave_frames=8,
     ):
         print("[Trigger] Loading YOLOv8n on CPU...")
         self.model = YOLO(yolo_model_path)
@@ -16,46 +17,55 @@ class TriggerDetector:
         print("[Trigger] Ready.")
 
         self.conf = confidence_threshold
+        self.min_box_area = min_box_area
         self.enter_frames = enter_frames
         self.leave_frames = leave_frames
 
         self._product_in_frame = False
-        self._presence_count = 0   # consecutive frames WITH object
-        self._absence_count = 0    # consecutive frames WITHOUT object
+        self._presence_count = 0
+        self._absence_count = 0
+        self.last_boxes = []   # normalized [x1,y1,x2,y2] for drawing on preview
 
     def process_frame(self, frame):
-        has_object = self._detect(frame)
+        boxes = self._detect(frame)
+        has_object = len(boxes) > 0
+        self.last_boxes = boxes
 
         if not self._product_in_frame:
-            # Waiting for a product to enter
             if has_object:
                 self._presence_count += 1
                 self._absence_count = 0
                 if self._presence_count >= self.enter_frames:
-                    # Confirmed — product is in frame
                     self._product_in_frame = True
                     self._presence_count = 0
                     return True   # ← TRIGGER
             else:
                 self._presence_count = 0
-
         else:
-            # Product is in frame — wait for it to leave
             if has_object:
-                self._absence_count = 0   # still here
+                self._absence_count = 0
             else:
                 self._absence_count += 1
                 if self._absence_count >= self.leave_frames:
-                    # Product left — ready for next one
                     self._product_in_frame = False
                     self._absence_count = 0
 
         return False
 
     def _detect(self, frame):
+        """Returns list of normalized [x1,y1,x2,y2] for boxes that pass the size filter."""
         small = cv2.resize(frame, (640, 640))
         results = self.model(small, verbose=False, conf=self.conf)
-        return len(results[0].boxes) > 0
+
+        valid = []
+        for box in results[0].boxes:
+            x1, y1, x2, y2 = box.xyxy[0].numpy()
+            box_area = (x2 - x1) * (y2 - y1) / (640 * 640)
+            if box_area >= self.min_box_area:
+                # Normalize to 0–1
+                valid.append([x1 / 640, y1 / 640, x2 / 640, y2 / 640])
+
+        return valid
 
     @property
     def product_in_frame(self):
@@ -65,3 +75,4 @@ class TriggerDetector:
         self._product_in_frame = False
         self._presence_count = 0
         self._absence_count = 0
+        self.last_boxes = []

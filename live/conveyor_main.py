@@ -31,6 +31,7 @@ class ConveyorSystem:
         self._trigger = TriggerDetector(
             yolo_model_path=config.YOLO_TRIGGER_MODEL,
             confidence_threshold=config.TRIGGER_CONFIDENCE_THRESHOLD,
+            min_box_area=config.TRIGGER_MIN_BOX_AREA,
             enter_frames=config.TRIGGER_ENTER_FRAMES,
             leave_frames=config.TRIGGER_LEAVE_FRAMES,
         )
@@ -109,24 +110,40 @@ class ConveyorSystem:
                 try:
                     preview = cv2.resize(frame, (pw, ph))
                     flashing = (time.monotonic() - last_fired_ts) < 0.5
-                    zone_color = (0, 255, 0) if flashing else (0, 200, 255)
+
+                    # Draw bounding boxes from YOLO
+                    for (x1n, y1n, x2n, y2n) in self._trigger.last_boxes:
+                        bx1 = int(x1n * pw)
+                        by1 = int(y1n * ph)
+                        bx2 = int(x2n * pw)
+                        by2 = int(y2n * ph)
+                        box_color = (0, 255, 0) if flashing else (0, 200, 255)
+                        cv2.rectangle(preview, (bx1, by1), (bx2, by2), box_color, 2)
+                        label = "SCANNING..." if flashing else "PRODUCT"
+                        cv2.putText(preview, label, (bx1, max(by1 - 8, 14)),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, box_color, 2)
 
                     # Flash border on trigger
                     if flashing:
                         cv2.rectangle(preview, (0, 0), (pw - 1, ph - 1), (0, 255, 0), 4)
 
+                    # Status overlay
                     if flashing:
                         status = "SCANNING"
+                        s_color = (0, 255, 0)
                     elif self._trigger.product_in_frame:
-                        status = "IN FRAME — REMOVE"
+                        status = "IN FRAME"
+                        s_color = (0, 200, 255)
                     else:
                         status = "READY"
+                        s_color = (200, 200, 200)
+
                     cv2.putText(preview, f"#{seq}  Q:{self._inspection_queue.qsize()}",
                                 (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                     cv2.putText(preview, status,
-                                (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, zone_color, 2)
+                                (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, s_color, 2)
                     cv2.putText(preview, "Q = quit",
-                                (8, ph - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (160, 160, 160), 1)
+                                (8, ph - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (140, 140, 140), 1)
 
                     cv2.imshow("Conveyor Inspection", preview)
                     key = cv2.waitKey(1) & 0xFF

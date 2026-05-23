@@ -28,7 +28,8 @@ YOLO_TRIGGER_MODEL = "yolov8n.pt"   # Auto-downloads via ultralytics
 TRIGGER_ROI_Y_BAND = (0.0, 1.0)
 TRIGGER_ROI_X_CENTER_BAND = (0.0, 1.0)
 
-TRIGGER_CONFIDENCE_THRESHOLD = 0.20  # Low — catches bags, boxes, bottles, cans at any angle
+TRIGGER_CONFIDENCE_THRESHOLD = 0.30  # Raise to avoid empty-space false positives
+TRIGGER_MIN_BOX_AREA = 0.05          # Object must cover ≥5% of frame (filters tiny noise)
 TRIGGER_ENTER_FRAMES = 3             # Consecutive detections to confirm product entered
 TRIGGER_LEAVE_FRAMES = 8             # Consecutive empty frames to confirm product left
 
