@@ -16,6 +16,9 @@ opencv-contrib-python
 Pillow
 numpy
 
+# ── OCR (CPU fast mode — used automatically when no GPU is detected) ──────────
+easyocr
+
 # ── Barcode Detection ─────────────────────────────────────────────────────────
 # Piero2411 YOLOv8 barcode detector (models/barcode_detector.pt)
 ultralytics
