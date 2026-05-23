@@ -22,19 +22,81 @@ except ImportError:
     from transformers import Qwen2VLForConditionalGeneration as _VLModel
 
 
+# Month name — full and abbreviated, all caps (text is uppercased before matching)
+_MON = (
+    r'(?:JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY'
+    r'|JUN(?:E)?|JUL(?:Y)?|AUG(?:UST)?|SEP(?:T(?:EMBER)?)?'
+    r'|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)'
+)
+
+# Expiry keywords
+_EXP_KW = (
+    r'(?:'
+    r'EXP(?:IRY|IRES?|IRE|IRATION(?:\s*DATE)?)?'   # EXP, EXPIRY, EXPIRES, EXPIRATION DATE
+    r'|BB\.?D?'                                      # BB, BBD
+    r'|B\.B\.?D?'                                    # B.B, B.B.D
+    r'|BEST\s*(?:BEFORE|BY|USED?\s*BY)'              # BEST BEFORE, BEST BY, BEST USED BY
+    r'|USE\s*(?:BY|BEFORE)(?:\s*DATE)?'              # USE BY, USE BEFORE, USE BY DATE
+    r'|USED?\s*BY'                                   # USED BY
+    r'|CONSUME\s*(?:BY|BEFORE)'                      # CONSUME BY, CONSUME BEFORE
+    r'|SELL\s*(?:BY|BEFORE)'                         # SELL BY, SELL BEFORE
+    r')'
+)
+
+# Manufacturing / packed keywords
+_MFG_KW = (
+    r'(?:'
+    r'MF[DG](?:\.?\s*(?:DATE|ON))?'                 # MFD, MFG, MFD DATE, MFG ON
+    r'|MANUFACTURED?\s*(?:ON|DATE)?'                 # MANUFACTURE, MANUFACTURED, MANUFACTURED ON
+    r'|MANUFACTURING\s*DATE'                         # MANUFACTURING DATE
+    r'|DATE\s*OF\s*MANU(?:FACTURE)?'                 # DATE OF MANUFACTURE
+    r'|DOM'                                          # DOM (date of manufacture)
+    r'|D\.O\.M\.?'                                   # D.O.M
+    r'|PROD(?:UCTION)?\s*(?:DATE|ON)?'               # PROD DATE, PRODUCTION DATE, PROD ON
+    r'|PACKED?\s*(?:ON|DATE)?'                       # PACK, PACKED, PACK ON, PACK DATE
+    r'|PACKING\s*DATE'                               # PACKING DATE
+    r'|PKD\.?\s*(?:ON)?'                             # PKD, PKD ON
+    r'|PACKAGING\s*DATE'                             # PACKAGING DATE
+    r'|MADE\s*ON'                                    # MADE ON
+    r')'
+)
+
+_KW_SEP = r'[\s:\.]*'   # gap between keyword and date value
+
 _DATE_PATTERNS = [
-    (r'(?:MF[DG]\.?\s*DATE\s*[:.]?|MF[DG]|MFG|MANUFACTURED?(?:\s*DATE)?|DOM)[\s:\.]*'
-     r'(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})',                                           'manufacture_date'),
-    (r'(?:MF[DG]\.?\s*DATE\s*[:.]?|MF[DG]|MFG|MANUFACTURED?)[\s:\.]*'
-     r'(\d{1,2}[\/\-\.](?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\/\-\.]\d{2,4})',
-                                                                                              'manufacture_date'),
-    (r'(?:MF[DG]|MFG)[\s:\.]*(\d{2})(\d{2})(\d{4})',                                       'manufacture_date'),
-    (r'(?:EXP(?:IRY|IRE|\.)?|BB\.?|BEST\s*BEFORE|USE\s*BY|USE\s*BEFORE|BBD)[\s:\.]*'
-     r'(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})',                                           'expiry_date'),
-    (r'(?:EXP(?:IRY|IRE)?|BB|BEST\s*BEFORE|USE\s*BY)[\s:\.]*'
-     r'(\d{1,2}[\/\-\.](?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\/\-\.]\d{2,4})',
-                                                                                              'expiry_date'),
-    (r'\b(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{2,4})\b',                                           'expiry_date'),
+    # ── Manufacturing ──────────────────────────────────────────────────────────
+    # dd/mm/yy  dd/mm/yyyy  dd-mm-yy  dd.mm.yyyy
+    (_MFG_KW + _KW_SEP + r'(\d{1,2}[\s\/\-\.]\d{1,2}[\s\/\-\.]\d{2,4})',           'manufacture_date'),
+    # dd/mmm/yy  dd-JAN-2025  dd mmm yyyy
+    (_MFG_KW + _KW_SEP + r'(\d{1,2}[\s\/\-\.]' + _MON + r'[\s\/\-\.]\d{2,4})',     'manufacture_date'),
+    # mmm/yyyy  mmm-yy  JAN 2025
+    (_MFG_KW + _KW_SEP + r'(' + _MON + r'[\s\/\-\.]\d{2,4})',                       'manufacture_date'),
+    # mm/yyyy  mm-yyyy  (month-year only)
+    (_MFG_KW + _KW_SEP + r'(\d{1,2}[\s\/\-\.]\d{4})',                               'manufacture_date'),
+    # yyyy-mm-dd  yyyy/mm/dd
+    (_MFG_KW + _KW_SEP + r'(\d{4}[\s\/\-\.]\d{1,2}[\s\/\-\.]\d{1,2})',             'manufacture_date'),
+    # compact ddmmyyyy  (inkjet / dot-matrix common)
+    (_MFG_KW + _KW_SEP + r'(\d{2})(\d{2})(\d{4})',                                  'manufacture_date'),
+    # compact yyyymmdd
+    (_MFG_KW + _KW_SEP + r'(\d{4})(\d{2})(\d{2})',                                  'manufacture_date'),
+
+    # ── Expiry ─────────────────────────────────────────────────────────────────
+    # dd/mm/yy  dd/mm/yyyy
+    (_EXP_KW + _KW_SEP + r'(\d{1,2}[\s\/\-\.]\d{1,2}[\s\/\-\.]\d{2,4})',           'expiry_date'),
+    # dd/mmm/yy  dd-JAN-2025
+    (_EXP_KW + _KW_SEP + r'(\d{1,2}[\s\/\-\.]' + _MON + r'[\s\/\-\.]\d{2,4})',     'expiry_date'),
+    # mmm/yyyy  JAN 2025
+    (_EXP_KW + _KW_SEP + r'(' + _MON + r'[\s\/\-\.]\d{2,4})',                       'expiry_date'),
+    # mm/yyyy
+    (_EXP_KW + _KW_SEP + r'(\d{1,2}[\s\/\-\.]\d{4})',                               'expiry_date'),
+    # yyyy-mm-dd
+    (_EXP_KW + _KW_SEP + r'(\d{4}[\s\/\-\.]\d{1,2}[\s\/\-\.]\d{1,2})',             'expiry_date'),
+
+    # ── Generic fallback (no label — most unlabeled dates are expiry) ──────────
+    # dd/mmm/yyyy or dd-JAN-25 standalone
+    (r'\b(\d{1,2}[\s\/\-\.]' + _MON + r'[\s\/\-\.]\d{2,4})\b',                     'expiry_date'),
+    # dd/mm/yyyy or dd-mm-yy standalone
+    (r'\b(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{2,4})\b',                                   'expiry_date'),
 ]
 
 _BATCH_PATTERN = re.compile(
@@ -49,8 +111,8 @@ _PROMPT = (
     "Brand: [exact brand or company name on the product]\n"
     "Product: [full product name and variant]\n"
     "Category: [Food / Drink / Snack / Skincare / Haircare / Medicine / Household]\n"
-    "Expiry: [expiry or best-before date, else NONE]\n"
-    "MFG: [manufacturing or packed date, else NONE]\n"
+    "Expiry: [any expiry/best-before/use-by/sell-by/consume-by/BB/BBD date, else NONE]\n"
+    "MFG: [any manufacturing/manufactured-on/packed-on/packing-date/production-date/made-on/DOM date, else NONE]\n"
     "Batch: [batch or lot number, else NONE]\n"
     "Reply using exactly those field names, one per line."
 )
@@ -115,8 +177,7 @@ class AIInspectionSystem:
         self.qwen_model = _VLModel.from_pretrained(qwen_model_id, **load_kwargs).eval()
         print(f"[System] {qwen_model_id} loaded.")
 
-        # Limit image tokens: each image capped at ~640×640 equivalent
-        # Prevents full-res photos from generating thousands of vision tokens
+        # 640 patches per image keeps small text (dates, batch numbers) legible.
         self.qwen_processor.image_processor.max_pixels = 640 * 28 * 28
         self.qwen_processor.image_processor.min_pixels = 4 * 28 * 28
 
@@ -137,7 +198,19 @@ class AIInspectionSystem:
 
     # ── Qwen2.5-VL — single call with ALL images ───────────────────────────────
 
+    @staticmethod
+    def _shrink_pil(pil_img, max_side=640):
+        """Downscale PIL image so its longest side ≤ max_side before tokenisation."""
+        w, h = pil_img.size
+        if max(w, h) > max_side:
+            scale = max_side / max(w, h)
+            pil_img = pil_img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        return pil_img
+
     def _qwen_extract(self, pil_images):
+        # Pre-shrink so the processor receives small images — saves tokenisation time
+        pil_images = [self._shrink_pil(img) for img in pil_images]
+
         content = []
         for img in pil_images:
             content.append({"type": "image", "image": img})
@@ -274,6 +347,45 @@ class AIInspectionSystem:
                 found["batch_number"] = m.group(1)
         return found
 
+    # ── Auto-orientation ───────────────────────────────────────────────────────
+
+    def _best_rotation(self, img_bgr):
+        """Return img rotated to the best upright orientation (0° or 180°).
+
+        Strategy:
+        1. If barcode detector loaded: run it on both orientations, pick the one
+           with higher max confidence. Fast signal — ~30 ms per call on GPU.
+        2. Fallback (no barcode / low confidence): Sobel-Y edge-density heuristic.
+           Product labels are top-heavy (logo/name at top, date at bottom), so the
+           top third has more horizontal edge energy when upright. ~3 ms.
+        """
+        img_180 = cv2.rotate(img_bgr, cv2.ROTATE_180)
+
+        if self.barcode_detector:
+            def _max_conf(img):
+                res = self.barcode_detector(img, verbose=False)
+                return max((b.conf[0].item() for r in res for b in r.boxes), default=0.0)
+
+            c0, c180 = _max_conf(img_bgr), _max_conf(img_180)
+            if c180 > c0 and c180 > 0.15:
+                print("[Orient] Rotated 180° (barcode signal)")
+                return img_180
+            if c0 > 0.15:
+                return img_bgr  # already correct, no message needed
+
+        # Sobel fallback
+        def _edge_top_score(img):
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            small = cv2.resize(gray, (256, 256))
+            gy = cv2.Sobel(small, cv2.CV_32F, 0, 1)
+            return float(np.sum(np.abs(gy[:85]))) - float(np.sum(np.abs(gy[171:])))
+
+        if _edge_top_score(img_180) > _edge_top_score(img_bgr):
+            print("[Orient] Rotated 180° (edge heuristic)")
+            return img_180
+
+        return img_bgr
+
     # ── Main pipeline ──────────────────────────────────────────────────────────
 
     def inspect_product(self, image_paths):
@@ -315,11 +427,15 @@ class AIInspectionSystem:
             result["status"] = "Error: no images loaded"
             return result
 
+        # ── Auto-orient (fix upside-down products) ─────────────────────────────
+        print(f"[Orient] Checking orientation on {len(loaded)} image(s)...")
+        loaded = [(path, self._best_rotation(img)) for path, img in loaded]
+
         # ── Phase 1: Barcode ───────────────────────────────────────────────────
         print(f"[Phase 1] Scanning {len(loaded)} image(s) for barcode...")
         for path, img in loaded:
             if self.barcode_detector:
-                for det in self.barcode_detector(path, verbose=False):
+                for det in self.barcode_detector(img, verbose=False):  # use oriented array
                     for box in det.boxes:
                         xyxy = box.xyxy[0].cpu().numpy().astype(int)
                         value = self._decode_crop(self._padded_crop(img, xyxy))
@@ -340,11 +456,23 @@ class AIInspectionSystem:
                         result["dotted_label_text"] = t
                     crnn_text_parts.append(t)
 
-        # ── Phase 3: Qwen2.5-VL — all images in ONE call ──────────────────────
-        print(f"[Phase 3] Qwen2.5-VL on {len(loaded)} image(s) (single call)...")
+        # ── Phase 3: Qwen2.5-VL ────────────────────────────────────────────────
+        # Pick the 2 sharpest frames — more images = more tokens = slower.
+        # Two angles give enough context; sending 3+ rarely improves accuracy.
+        _VLM_MAX = 2
+        if len(loaded) > _VLM_MAX:
+            ranked = sorted(loaded, reverse=True,
+                            key=lambda x: cv2.Laplacian(
+                                cv2.cvtColor(x[1], cv2.COLOR_BGR2GRAY), cv2.CV_64F
+                            ).var())
+            vlm_imgs = [img for _, img in ranked[:_VLM_MAX]]
+        else:
+            vlm_imgs = [img for _, img in loaded]
+
+        print(f"[Phase 3] Qwen2.5-VL on {len(vlm_imgs)} image(s)...")
         pil_images = [
             Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            for _, img in loaded
+            for img in vlm_imgs
         ]
         qwen_data = self._qwen_extract(pil_images)
         result.update({k: v for k, v in qwen_data.items() if v})
