@@ -1,5 +1,5 @@
 # ── Camera Setup ───────────────────────────────────────────────────────────────
-CAMERA_INDICES = [0]                # cv2.VideoCapture device indices (1 webcam for testing)
+CAMERA_INDICES = [1]                # cv2.VideoCapture device indices (phone via Link to Windows)
 CAMERA_RESOLUTION = (1280, 720)     # Width x Height
 CAMERA_FPS = 30
 

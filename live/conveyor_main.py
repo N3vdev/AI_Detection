@@ -64,9 +64,16 @@ class ConveyorSystem:
         print(f"[Conveyor] Running — pass products under Camera-{config.TRIGGER_CAMERA_INDEX} to inspect.")
         print("[Conveyor] Press Ctrl+C to stop early.\n")
 
+        h_res, w_res = config.CAMERA_RESOLUTION[1], config.CAMERA_RESOLUTION[0]
+        x1_zone = int(config.TRIGGER_ROI_X_CENTER_BAND[0] * w_res)
+        x2_zone = int(config.TRIGGER_ROI_X_CENTER_BAND[1] * w_res)
+        y1_zone = int(config.TRIGGER_ROI_Y_BAND[0] * h_res)
+        y2_zone = int(config.TRIGGER_ROI_Y_BAND[1] * h_res)
+
+        last_fired_flash = 0  # timestamp of last trigger for green flash
+
         try:
             while seq < max_products:
-                # Get the latest frame from the trigger camera
                 frame = trigger_cam_buf.get_closest(time.monotonic(), window_ms=100)
                 if frame is None:
                     time.sleep(0.01)
@@ -77,6 +84,7 @@ class ConveyorSystem:
 
                 if fired:
                     trigger_ts = time.monotonic()
+                    last_fired_flash = trigger_ts
                     seq += 1
                     frames = self._assembler.collect_snapshot(trigger_ts)
                     task = InspectionTask(
@@ -91,10 +99,29 @@ class ConveyorSystem:
                     except queue.Full:
                         print(f"[Conveyor] WARNING: Queue full — product #{seq} dropped. Slow down the belt.")
 
-                time.sleep(0.005)  # ~200fps poll cap to avoid busy-spin
+                # ── Preview window ─────────────────────────────────────────
+                preview = frame.copy()
+                flashing = (time.monotonic() - last_fired_flash) < 0.4
+                zone_color = (0, 255, 0) if flashing else (0, 200, 255)
+                cv2.rectangle(preview, (x1_zone, y1_zone), (x2_zone, y2_zone), zone_color, 2)
+                label = f"Products: {seq}  Queue: {self._inspection_queue.qsize()}"
+                cv2.putText(preview, label, (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+                cv2.putText(preview, "Move product into box to scan | Q to quit",
+                            (10, h_res - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1)
+                cv2.imshow("Conveyor Inspection", preview)
+
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
+                    print("\n[Conveyor] Quit by user.")
+                    break
+
+                time.sleep(0.005)
 
         except KeyboardInterrupt:
             print("\n[Conveyor] Interrupted by user.")
+
+        cv2.destroyAllWindows()
 
         print(f"\n[Conveyor] Session complete — {seq} products captured.")
         self._print_summary()
