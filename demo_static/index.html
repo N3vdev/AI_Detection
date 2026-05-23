@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>AI Product Inspector</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0c0c0c;
+      color: #f0f0f0;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 16px 40px;
+      gap: 0;
+    }
+
+    .header { text-align: center; margin-bottom: 28px; }
+    .header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+    .header p  { font-size: 0.82rem; color: #666; margin-top: 6px; }
+
+    /* ── Camera / preview area ── */
+    .photo-area {
+      width: 100%;
+      max-width: 380px;
+      aspect-ratio: 3/4;
+      background: #171717;
+      border: 2px dashed #2a2a2a;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .photo-area:active { border-color: #444; }
+    .photo-area img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 18px;
+    }
+    .photo-icon { font-size: 2.8rem; line-height: 1; }
+    .photo-hint { font-size: 0.88rem; color: #555; }
+
+    input[type="file"] { display: none; }
+
+    /* ── Scan button ── */
+    .btn-scan {
+      margin-top: 16px;
+      width: 100%;
+      max-width: 380px;
+      padding: 17px;
+      font-size: 1rem;
+      font-weight: 700;
+      background: #22c55e;
+      color: #000;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      letter-spacing: 0.01em;
+    }
+    .btn-scan:active  { background: #16a34a; }
+    .btn-scan:disabled { opacity: 0.35; cursor: not-allowed; background: #22c55e; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      margin-top: 28px;
+    }
+    .spinner.show { display: flex; }
+    .spin-ring {
+      width: 44px; height: 44px;
+      border: 3px solid #222;
+      border-top-color: #22c55e;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin-label { font-size: 0.82rem; color: #666; }
+
+    /* ── Result card ── */
+    .result {
+      display: none;
+      width: 100%;
+      max-width: 380px;
+      background: #151515;
+      border: 1px solid #242424;
+      border-radius: 20px;
+      padding: 20px;
+      margin-top: 24px;
+    }
+    .result.show { display: block; }
+
+    .result-top {
+      display: flex;
+      align-items: center;
+      margin-bottom: 18px;
+      gap: 10px;
+    }
+    .badge {
+      padding: 4px 11px;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    .badge-barcode { background: #0ea5e9; color: #000; }
+    .badge-ai      { background: #a855f7; color: #fff; }
+    .result-ms     { margin-left: auto; font-size: 0.72rem; color: #555; }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 11px 0;
+      border-bottom: 1px solid #1e1e1e;
+      gap: 14px;
+    }
+    .row:last-child { border-bottom: none; padding-bottom: 0; }
+    .row-label {
+      font-size: 0.72rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+      padding-top: 2px;
+      flex-shrink: 0;
+    }
+    .row-value {
+      font-size: 0.9rem;
+      color: #e0e0e0;
+      text-align: right;
+      word-break: break-word;
+    }
+    .row-value.primary {
+      color: #22c55e;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    /* ── Error ── */
+    .error {
+      display: none;
+      width: 100%;
+      max-width: 380px;
+      background: #1c0a0a;
+      border: 1px solid #5c1a1a;
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 0.84rem;
+      color: #f87171;
+      margin-top: 20px;
+    }
+    .error.show { display: block; }
+
+    /* ── New scan button ── */
+    .btn-new {
+      display: none;
+      margin-top: 14px;
+      width: 100%;
+      max-width: 380px;
+      padding: 14px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: transparent;
+      color: #888;
+      border: 1px solid #2a2a2a;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-new.show { display: block; }
+    .btn-new:active { border-color: #555; color: #ccc; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>AI Product Inspector</h1>
+    <p>Take a photo of any product to identify it</p>
+  </div>
+
+  <div class="photo-area" id="photoArea" onclick="document.getElementById('fileInput').click()">
+    <div class="photo-icon">📷</div>
+    <div class="photo-hint">Tap to open camera</div>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" capture="environment">
+
+  <button class="btn-scan" id="btnScan" disabled onclick="scan()">Scan Product</button>
+
+  <div class="spinner" id="spinner">
+    <div class="spin-ring"></div>
+    <div class="spin-label" id="spinLabel">Analysing product…</div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="result-top">
+      <span class="badge" id="badge"></span>
+      <span class="result-ms" id="resultMs"></span>
+    </div>
+    <div id="rows"></div>
+  </div>
+
+  <div class="error" id="error"></div>
+
+  <button class="btn-new" id="btnNew" onclick="reset()">Scan Another Product</button>
+
+<script>
+  const fileInput  = document.getElementById('fileInput');
+  const photoArea  = document.getElementById('photoArea');
+  const btnScan    = document.getElementById('btnScan');
+  const spinner    = document.getElementById('spinner');
+  const spinLabel  = document.getElementById('spinLabel');
+  const resultEl   = document.getElementById('result');
+  const errorEl    = document.getElementById('error');
+  const btnNew     = document.getElementById('btnNew');
+
+  let selectedFile = null;
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    selectedFile = file;
+
+    const url = URL.createObjectURL(file);
+    photoArea.innerHTML = `<img src="${url}" alt="preview">`;
+    btnScan.disabled = false;
+
+    resultEl.classList.remove('show');
+    errorEl.classList.remove('show');
+    btnNew.classList.remove('show');
+  });
+
+  async function scan() {
+    if (!selectedFile) return;
+
+    btnScan.disabled = true;
+    spinner.classList.add('show');
+    spinLabel.textContent = 'Analysing product…';
+    resultEl.classList.remove('show');
+    errorEl.classList.remove('show');
+    btnNew.classList.remove('show');
+
+    // Cycle the spinner label to show progress
+    const labels = ['Scanning for barcode…', 'Running AI vision…', 'Extracting details…'];
+    let li = 0;
+    const cycle = setInterval(() => {
+      li = (li + 1) % labels.length;
+      spinLabel.textContent = labels[li];
+    }, 1800);
+
+    const form = new FormData();
+    form.append('image', selectedFile);
+
+    try {
+      const res = await fetch('/inspect', { method: 'POST', body: form });
+      clearInterval(cycle);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Server error ${res.status}`);
+      }
+      const data = await res.json();
+      showResult(data);
+    } catch (e) {
+      clearInterval(cycle);
+      errorEl.textContent = `Error: ${e.message}`;
+      errorEl.classList.add('show');
+      btnScan.disabled = false;
+    } finally {
+      spinner.classList.remove('show');
+    }
+  }
+
+  function showResult(data) {
+    const badge    = document.getElementById('badge');
+    const resultMs = document.getElementById('resultMs');
+    const rows     = document.getElementById('rows');
+
+    rows.innerHTML = '';
+
+    if (data.barcode) {
+      badge.textContent = 'Barcode';
+      badge.className = 'badge badge-barcode';
+      addRow(rows, 'Value', data.barcode, true);
+    } else {
+      badge.textContent = 'AI Scan';
+      badge.className = 'badge badge-ai';
+
+      if (data.brand)            addRow(rows, 'Brand',    data.brand, true);
+      if (data.product_name)     addRow(rows, 'Product',  data.product_name);
+      if (data.product_category) addRow(rows, 'Category', data.product_category);
+      if (data.expiry_date)      addRow(rows, 'Expiry',   data.expiry_date);
+      if (data.manufacture_date) addRow(rows, 'MFG Date', data.manufacture_date);
+      if (data.batch_number)     addRow(rows, 'Batch',    data.batch_number);
+
+      if (!data.brand && !data.product_name) {
+        addRow(rows, 'Status', data.status || 'Could not extract details');
+      }
+    }
+
+    if (data.processing_ms) {
+      resultMs.textContent = `${(data.processing_ms / 1000).toFixed(1)}s`;
+    }
+
+    resultEl.classList.add('show');
+    btnNew.classList.add('show');
+    resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function addRow(container, label, value, primary = false) {
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.innerHTML = `
+      <span class="row-label">${label}</span>
+      <span class="row-value${primary ? ' primary' : ''}">${value}</span>
+    `;
+    container.appendChild(div);
+  }
+
+  function reset() {
+    selectedFile = null;
+    fileInput.value = '';
+    photoArea.innerHTML = `
+      <div class="photo-icon">📷</div>
+      <div class="photo-hint">Tap to open camera</div>
+    `;
+    btnScan.disabled = true;
+    resultEl.classList.remove('show');
+    errorEl.classList.remove('show');
+    btnNew.classList.remove('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+
+</body>
+</html>
