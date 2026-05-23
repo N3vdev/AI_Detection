@@ -6,31 +6,60 @@ import numpy as np
 from PIL import Image
 from ultralytics import YOLO
 from src.ocr_model import CRNN
-from transformers import Qwen2VLProcessor, Qwen2VLForConditionalGeneration
 
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
 except ImportError:
     pyzbar_decode = None
 
+# Support Qwen2.5-VL (newer, more accurate) with fallback to Qwen2-VL
+try:
+    from transformers import Qwen2_5_VLProcessor as _VLProcessor
+    from transformers import Qwen2_5_VLForConditionalGeneration as _VLModel
+except ImportError:
+    from transformers import Qwen2VLProcessor as _VLProcessor
+    from transformers import Qwen2VLForConditionalGeneration as _VLModel
+
 
 _DATE_PATTERNS = [
-    (r'MF[DG][\s:]*(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{2,4})',                                    'manufacture_date'),
-    (r'(?:EXP|EXPIRY|BB|BEST\s*BEFORE|USE\s*BY)[\s:]*(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{2,4})', 'expiry_date'),
-    (r'\b(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{2,4})\b',                                             'expiry_date'),
+    (r'(?:MF[DG]\.?\s*DATE\s*[:.]?|MF[DG]|MFG|MANUFACTURED?(?:\s*DATE)?|DOM)[\s:\.]*'
+     r'(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})',                                           'manufacture_date'),
+    (r'(?:MF[DG]\.?\s*DATE\s*[:.]?|MF[DG]|MFG|MANUFACTURED?)[\s:\.]*'
+     r'(\d{1,2}[\/\-\.](?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\/\-\.]\d{2,4})',
+                                                                                              'manufacture_date'),
+    (r'(?:MF[DG]|MFG)[\s:\.]*(\d{2})(\d{2})(\d{4})',                                       'manufacture_date'),
+    (r'(?:EXP(?:IRY|IRE|\.)?|BB\.?|BEST\s*BEFORE|USE\s*BY|USE\s*BEFORE|BBD)[\s:\.]*'
+     r'(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})',                                           'expiry_date'),
+    (r'(?:EXP(?:IRY|IRE)?|BB|BEST\s*BEFORE|USE\s*BY)[\s:\.]*'
+     r'(\d{1,2}[\/\-\.](?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[\/\-\.]\d{2,4})',
+                                                                                              'expiry_date'),
+    (r'\b(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{2,4})\b',                                           'expiry_date'),
 ]
 
-_QWEN_PROMPT = (
+_BATCH_PATTERN = re.compile(
+    r'(?:BATCH\s*(?:NO\.?|NUMBER|CODE)?|LOT\s*(?:NO\.?|NUMBER)?)[\s:\.]*([A-Z0-9]{5,20})',
+    re.IGNORECASE,
+)
+
+_QWEN_FRONT_PROMPT = (
     "You are a product label scanner on a factory conveyor belt. "
-    "Look at this product image carefully and extract:\n"
-    "Brand: [company/brand name]\n"
-    "Product: [full product name and type]\n"
+    "Look carefully at this product image and extract:\n"
+    "Brand: [exact brand or company name visible on the product]\n"
+    "Product: [full product name and variant]\n"
     "Category: [Food / Drink / Snack / Skincare / Haircare / Medicine / Household]\n"
-    "Expiry: [expiry date if visible, else NONE]\n"
-    "MFG: [manufacturing date if visible, else NONE]\n"
+    "Expiry: [expiry or best-before date if visible, else NONE]\n"
+    "MFG: [manufacturing or packed date if visible, else NONE]\n"
     "Batch: [batch or lot number if visible, else NONE]\n"
-    "Text: [all other visible text on the label, comma separated, else NONE]\n"
-    "Reply using exactly those field names."
+    "Reply using exactly those field names, one per line."
+)
+
+_QWEN_BACK_PROMPT = (
+    "You are reading the back or bottom label of a product. "
+    "Look carefully and extract ONLY:\n"
+    "Expiry: [expiry or best-before date, else NONE]\n"
+    "MFG: [manufacturing or packed date, else NONE]\n"
+    "Batch: [batch or lot number, else NONE]\n"
+    "Reply using exactly those field names, one per line."
 )
 
 
@@ -39,7 +68,7 @@ class AIInspectionSystem:
         self,
         barcode_model_path='models/barcode_detector.pt',
         ocr_model_path='models/dotted_ocr_retrained.pth',
-        qwen_model_id='Qwen/Qwen2-VL-2B-Instruct',
+        qwen_model_id='Qwen/Qwen2.5-VL-7B-Instruct',
     ):
         print("[System] Initializing AI Inspection Pipeline...")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -53,25 +82,28 @@ class AIInspectionSystem:
         else:
             print(f"[Warning] Barcode model not found: {barcode_model_path}")
 
-        # ── VLM or OCR depending on device ────────────────────────────────────
-        self.qwen_processor = None
-        self.qwen_model = None
-        self.ocr_reader = None
+        # ── Vision-Language Model ──────────────────────────────────────────────
+        # Qwen2.5-VL-7B: state-of-the-art for reading product labels, logos,
+        # and dates. Uses device_map="auto" to fill all available VRAM.
+        # VRAM needed:  float16 → ~15 GB  |  4-bit → ~5 GB
+        print(f"[System] Loading {qwen_model_id}...")
+        self.qwen_processor = _VLProcessor.from_pretrained(qwen_model_id)
 
+        load_kwargs = dict(device_map="auto")
         if self.device == "cuda":
-            # GPU: Qwen2-VL — reads stylized logos accurately, ~2-3s
-            print(f"[System] Loading Qwen2-VL ({qwen_model_id})...")
-            self.qwen_processor = Qwen2VLProcessor.from_pretrained(qwen_model_id)
-            self.qwen_model = Qwen2VLForConditionalGeneration.from_pretrained(
-                qwen_model_id, torch_dtype=torch.float16,
-            ).to(self.device).eval()
-            print("[System] Qwen2-VL loaded.")
+            load_kwargs["torch_dtype"] = torch.float16
+            # Enable Flash Attention 2 if available (2-4× faster on Ampere/Ada GPUs)
+            try:
+                load_kwargs["attn_implementation"] = "flash_attention_2"
+            except Exception:
+                pass
         else:
-            # CPU: EasyOCR — fast (~2s), limited on stylized fonts
-            print("[System] CPU mode — loading EasyOCR (fast). GPU required for full accuracy.")
-            import easyocr
-            self.ocr_reader = easyocr.Reader(['en'], gpu=False, verbose=False)
-            print("[System] EasyOCR loaded.")
+            load_kwargs["torch_dtype"] = torch.float32
+
+        self.qwen_model = _VLModel.from_pretrained(
+            qwen_model_id, **load_kwargs
+        ).eval()
+        print(f"[System] {qwen_model_id} loaded.")
 
         # ── CRNN dotted/inkjet label reader ────────────────────────────────────
         self.alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/-.: "
@@ -85,18 +117,35 @@ class AIInspectionSystem:
         except Exception as e:
             print(f"[System] Dotted CRNN not loaded ({e}).")
 
+        # EasyOCR loaded lazily — only for back-label date extraction
+        self._ocr_reader = None
+
         torch.set_num_threads(os.cpu_count() or 4)
         print("[System] Ready.\n")
 
-    # ── Qwen2-VL inference (GPU) ───────────────────────────────────────────────
+    # ── Front / back classifier ────────────────────────────────────────────────
 
-    def _qwen_extract(self, img_bgr):
+    def _classify_label(self, img_bgr):
+        """
+        Classify image as 'front' or 'back' using Canny edge density.
+        Back labels have dense text (many edges); front labels are mostly graphics.
+        """
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 150)
+        density = np.sum(edges > 0) / edges.size
+        label = "back" if density > 0.07 else "front"
+        print(f"[Classify] {label.upper()} (edge density={density:.3f})")
+        return label
+
+    # ── Qwen VLM inference ─────────────────────────────────────────────────────
+
+    def _qwen_extract(self, img_bgr, prompt, max_tokens=100):
         img_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
         messages = [{
             "role": "user",
             "content": [
                 {"type": "image", "image": img_pil},
-                {"type": "text",  "text": _QWEN_PROMPT},
+                {"type": "text",  "text": prompt},
             ],
         }]
         text = self.qwen_processor.apply_chat_template(
@@ -105,15 +154,16 @@ class AIInspectionSystem:
         inputs = self.qwen_processor(
             text=[text], images=[img_pil], return_tensors="pt"
         ).to(self.device)
+
         with torch.inference_mode():
             output_ids = self.qwen_model.generate(
-                **inputs, max_new_tokens=150, do_sample=False
+                **inputs, max_new_tokens=max_tokens, do_sample=False
             )
         response = self.qwen_processor.batch_decode(
             output_ids[:, inputs.input_ids.shape[1]:],
             skip_special_tokens=True,
         )[0].strip()
-        print(f"[Qwen2-VL] Response:\n{response}\n")
+        print(f"[Qwen] Response:\n{response}\n")
         return self._parse_qwen(response)
 
     def _parse_qwen(self, response):
@@ -132,41 +182,46 @@ class AIInspectionSystem:
             elif key == "expiry":   result["expiry_date"] = value
             elif key == "mfg":      result["manufacture_date"] = value
             elif key == "batch":    result["batch_number"] = value
-            elif key == "text":     result["raw_ocr_text"] = value
         return result
 
-    # ── EasyOCR inference (CPU) ────────────────────────────────────────────────
+    # ── EasyOCR date scan (lazy-loaded, back labels only) ─────────────────────
 
-    def _easyocr_extract(self, img_bgr):
-        results = self.ocr_reader.readtext(img_bgr)
-        if not results:
-            return {}
+    def _get_ocr_reader(self):
+        if self._ocr_reader is None:
+            import easyocr
+            print("[System] Loading EasyOCR for date extraction...")
+            self._ocr_reader = easyocr.Reader(['en'], gpu=self.device == "cuda",
+                                               verbose=False)
+        return self._ocr_reader
 
-        def bbox_area(r):
-            pts = r[0]
-            return abs(pts[1][0] - pts[0][0]) * abs(pts[2][1] - pts[0][1])
+    def _easyocr_date_scan(self, img_bgr):
+        """Targeted date scan on back label: full image + strips at 3× zoom + CLAHE."""
+        reader = self._get_ocr_reader()
+        h, w = img_bgr.shape[:2]
 
-        sorted_by_size = sorted(results, key=bbox_area, reverse=True)
-        all_text = " ".join(r[1] for r in results if r[2] > 0.3)
+        def ocr_region(crop, scale=1.0):
+            if crop.size == 0:
+                return ""
+            if scale != 1.0:
+                crop = cv2.resize(crop, None, fx=scale, fy=scale,
+                                  interpolation=cv2.INTER_CUBIC)
+            gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+            clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(4, 4))
+            enhanced = clahe.apply(cv2.fastNlMeansDenoising(gray, h=15))
+            results = reader.readtext(cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR))
+            text = " ".join(r[1] for r in results if r[2] > 0.2)
+            if text.strip():
+                print(f"[EasyOCR] {text[:100]}")
+            return text
 
-        out = {"raw_ocr_text": all_text}
-        # Largest high-confidence text → brand candidate
-        for r in sorted_by_size:
-            if r[2] > 0.5 and len(r[1].strip()) >= 3:
-                out["brand"] = r[1].strip()
-                break
-        # Second largest → product name candidate
-        skipped_brand = False
-        for r in sorted_by_size:
-            if not skipped_brand:
-                skipped_brand = True
-                continue
-            if r[2] > 0.4 and len(r[1].strip()) >= 3:
-                out["product_name"] = r[1].strip()
-                break
-
-        print(f"[EasyOCR] Extracted: {all_text[:120]}")
-        return out
+        parts = [
+            ocr_region(img_bgr),
+            ocr_region(img_bgr[int(h * 0.65):, :], scale=3),
+            ocr_region(img_bgr[:int(h * 0.25), :], scale=3),
+            ocr_region(img_bgr[:, :int(w * 0.3)],  scale=3),
+            ocr_region(img_bgr[:, int(w * 0.7):],  scale=3),
+        ]
+        return " ".join(p for p in parts if p)
 
     # ── Dotted label helpers ───────────────────────────────────────────────────
 
@@ -235,6 +290,8 @@ class AIInspectionSystem:
         pw, ph = int((x2 - x1) * pad), int((y2 - y1) * pad)
         return img[max(0, y1 - ph):min(h, y2 + ph), max(0, x1 - pw):min(w, x2 + pw)]
 
+    # ── Date / batch extraction ────────────────────────────────────────────────
+
     def _extract_dates(self, text):
         found = {}
         upper = text.upper()
@@ -242,15 +299,24 @@ class AIInspectionSystem:
             if key not in found:
                 m = re.search(pattern, upper)
                 if m:
-                    found[key] = m.group(1)
+                    if m.lastindex and m.lastindex >= 3:
+                        found[key] = f"{m.group(1)}/{m.group(2)}/{m.group(3)}"
+                    else:
+                        found[key] = m.group(1).strip()
+        if "batch_number" not in found:
+            m = _BATCH_PATTERN.search(upper)
+            if m:
+                found["batch_number"] = m.group(1)
         return found
 
     # ── Main pipeline ──────────────────────────────────────────────────────────
 
     def inspect_product(self, image_paths):
         """
-        Inspect one or more images of the same product (front, back, side).
-        Results from all views are merged — the best data from each image wins.
+        Inspect one or more images of the same product.
+        Auto-detects front (logo/brand) vs back (dates/info) and routes each
+        image to the right model — Qwen2.5-VL-7B for the front, EasyOCR +
+        Qwen fallback for the back.
 
         Usage:
             system.inspect_product("front.jpg")
@@ -273,7 +339,6 @@ class AIInspectionSystem:
             "status":            "Incomplete",
         }
 
-        # Load all images upfront
         loaded = []
         for path in image_paths:
             img = cv2.imread(path)
@@ -286,7 +351,7 @@ class AIInspectionSystem:
             result["status"] = "Error: no images loaded"
             return result
 
-        # ── Phase 1: Barcode — check every view ────────────────────────────────
+        # ── Phase 1: Barcode ───────────────────────────────────────────────────
         print(f"[Phase 1] Scanning {len(loaded)} image(s) for barcode...")
         for path, img in loaded:
             if self.barcode_detector:
@@ -301,7 +366,31 @@ class AIInspectionSystem:
                             return result
         print("[Phase 1] No barcode — moving to Phase 2.")
 
-        # ── Phase 2: CRNN dotted labels on every view ──────────────────────────
+        # ── Phase 2: Classify front / back ────────────────────────────────────
+        print("[Phase 2] Classifying images...")
+        fronts, backs = [], []
+        for path, img in loaded:
+            if self._classify_label(img) == "front":
+                fronts.append((path, img))
+            else:
+                backs.append((path, img))
+
+        # Guarantee at least one front — pick the least text-dense image
+        if not fronts:
+            densities = sorted(
+                ((np.sum(cv2.Canny(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), 50, 150) > 0)
+                  / img.shape[0] / img.shape[1], path, img)
+                 for path, img in loaded)
+            )
+            fronts = [(densities[0][1], densities[0][2])]
+            backs  = [(p, i) for _, p, i in densities[1:]]
+            print(f"[Phase 2] Fallback: using {os.path.basename(fronts[0][0])} as front")
+
+        print(f"[Phase 2] Front: {[os.path.basename(p) for p,_ in fronts]}")
+        if backs:
+            print(f"[Phase 2] Back:  {[os.path.basename(p) for p,_ in backs]}")
+
+        # ── Phase 3: CRNN dotted labels on all images ──────────────────────────
         all_text_parts = []
         if self.crnn_ready:
             for _, img in loaded:
@@ -311,40 +400,36 @@ class AIInspectionSystem:
                         result["dotted_label_text"] = crnn_text
                     all_text_parts.append(crnn_text)
 
-        # ── Phase 3: Brand / product / category ────────────────────────────────
-        if self.device == "cuda":
-            # GPU — Qwen2-VL on first image (most informative view)
-            print(f"[Phase 3] Qwen2-VL on {os.path.basename(loaded[0][0])}...")
-            qwen_data = self._qwen_extract(loaded[0][1])
-            for k, v in qwen_data.items():
-                if v and not result.get(k):
-                    result[k] = v
-            if qwen_data.get("raw_ocr_text"):
-                all_text_parts.append(qwen_data["raw_ocr_text"])
+        # ── Phase 4: Qwen2.5-VL on front image → brand, product, category ─────
+        print(f"[Phase 4] Qwen2.5-VL-7B on front: {os.path.basename(fronts[0][0])}")
+        qwen_data = self._qwen_extract(fronts[0][1], _QWEN_FRONT_PROMPT, max_tokens=100)
+        result.update({k: v for k, v in qwen_data.items() if v})
 
-            # If dates or batch still missing, run Qwen2-VL on remaining views
-            needs_more = not result.get("expiry_date") or not result.get("manufacture_date")
-            if needs_more and len(loaded) > 1:
-                for path, img in loaded[1:]:
-                    print(f"[Phase 3] Qwen2-VL on {os.path.basename(path)} (checking remaining fields)...")
-                    extra = self._qwen_extract(img)
-                    for k, v in extra.items():
+        # ── Phase 5: Back label — EasyOCR first, Qwen fallback ────────────────
+        if backs:
+            dates_needed = not result.get("expiry_date") or not result.get("manufacture_date")
+            if dates_needed:
+                print(f"[Phase 5] Date scan on back: {os.path.basename(backs[0][0])}")
+                back_text = self._easyocr_date_scan(backs[0][1])
+                all_text_parts.append(back_text)
+
+                # Run regex on EasyOCR output
+                for k, v in self._extract_dates(back_text).items():
+                    if not result.get(k):
+                        result[k] = v
+
+                # Still missing? Qwen2.5-VL with date-only prompt (fast — 50 tokens)
+                still_missing = not result.get("expiry_date") and not result.get("manufacture_date")
+                if still_missing:
+                    print("[Phase 5] EasyOCR missed dates — Qwen2.5-VL on back...")
+                    qwen_back = self._qwen_extract(backs[0][1], _QWEN_BACK_PROMPT, max_tokens=50)
+                    for k, v in qwen_back.items():
                         if v and not result.get(k):
                             result[k] = v
-        else:
-            # CPU — EasyOCR on every view, merge best result
-            print(f"[Phase 3] EasyOCR on {len(loaded)} image(s)...")
-            for _, img in loaded:
-                ocr_data = self._easyocr_extract(img)
-                for k in ("brand", "product_name", "raw_ocr_text"):
-                    if ocr_data.get(k) and not result.get(k):
-                        result[k] = ocr_data[k]
-                if ocr_data.get("raw_ocr_text"):
-                    all_text_parts.append(ocr_data["raw_ocr_text"])
 
-        # ── Date regex over everything collected ───────────────────────────────
+        # ── Final: date regex over all collected text ──────────────────────────
         combined = " ".join(all_text_parts)
-        result["raw_ocr_text"] = combined or result.get("raw_ocr_text")
+        result["raw_ocr_text"] = combined[:500] if combined else None
         for k, v in self._extract_dates(combined).items():
             if not result.get(k):
                 result[k] = v
@@ -353,7 +438,7 @@ class AIInspectionSystem:
         return result
 
     def inspect_image(self, image_path):
-        """Single-image convenience wrapper (backward compatible)."""
+        """Single-image convenience wrapper."""
         r = self.inspect_product([image_path])
         r["image"] = os.path.basename(image_path)
         return r

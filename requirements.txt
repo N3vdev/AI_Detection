@@ -3,26 +3,35 @@ torch
 torchvision
 accelerate
 
-# ── Vision / Language Models ──────────────────────────────────────────────────
-# Qwen2-VL-2B-Instruct (downloaded automatically on first run from HuggingFace)
-transformers>=4.45.0
+# ── Vision-Language Model ─────────────────────────────────────────────────────
+# Qwen2.5-VL-7B-Instruct (auto-downloaded on first run, ~15 GB)
+# VRAM: float16 needs ~15 GB | 4-bit (bitsandbytes) needs ~5 GB
+# Recommended GPU: RTX 3090 / 4080 / 4090 for float16
+#                  RTX 3060 12GB / 3070 / 3080 with 4-bit quantization
+transformers>=4.51.0
 huggingface-hub
 sentencepiece
 tiktoken
 
+# Optional: 4-bit quantization for smaller GPUs (requires CUDA toolkit)
+# pip install bitsandbytes
+
+# Optional: Flash Attention 2 for 2-4× faster inference on Ampere/Ada GPUs
+# pip install flash-attn --no-build-isolation
+
+# ── OCR (back-label date extraction) ──────────────────────────────────────────
+easyocr
+
 # ── Computer Vision ───────────────────────────────────────────────────────────
-# opencv-contrib required (not plain opencv-python) for cv2.barcode.BarcodeDetector
+# opencv-contrib required for cv2.barcode.BarcodeDetector
 opencv-contrib-python
 Pillow
 numpy
 
-# ── OCR (CPU fast mode — used automatically when no GPU is detected) ──────────
-easyocr
-
 # ── Barcode Detection ─────────────────────────────────────────────────────────
-# Piero2411 YOLOv8 barcode detector (models/barcode_detector.pt)
+# Piero2411 YOLOv8 model (models/barcode_detector.pt — included in repo)
 ultralytics
-# pyzbar requires ZBar DLL on Windows: https://pypi.org/project/pyzbar/
+# pyzbar on Windows requires ZBar DLL: https://pypi.org/project/pyzbar/
 pyzbar
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
