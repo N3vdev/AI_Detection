@@ -1,103 +1,92 @@
 import cv2
-from ultralytics import YOLO
-
-# States for the product state machine
-_IDLE = "IDLE"
-_ENTERING = "ENTERING"
-_CENTERED = "CENTERED"
-_EXITING = "EXITING"
 
 
 class TriggerDetector:
     def __init__(
         self,
-        yolo_model_path="yolov8n.pt",
         roi_y_band=(0.25, 0.75),
-        roi_x_center_band=(0.3, 0.7),
-        confidence_threshold=0.55,
-        check_every_n_frames=3,
-        min_gap_frames=15,
+        roi_x_center_band=(0.2, 0.8),
+        min_contour_area=3000,
+        min_gap_frames=20,
+        check_every_n_frames=2,
+        mog2_history=300,
+        mog2_var_threshold=40,
     ):
-        # Run on CPU — GPU is reserved for the inspection worker
-        print("[Trigger] Loading YOLOv8n on CPU...")
-        self.model = YOLO(yolo_model_path)
-        self.model.to("cpu")
-        print("[Trigger] YOLOv8n ready.")
-
         self.roi_y_band = roi_y_band
         self.roi_x_center_band = roi_x_center_band
-        self.conf_thresh = confidence_threshold
+        self.min_area = min_contour_area
+        self.min_gap = min_gap_frames
         self.check_every_n = check_every_n_frames
-        self.min_gap_frames = min_gap_frames
 
-        self._state = _IDLE
-        self._clear_count = 0  # consecutive empty-zone detections after firing
+        self._bg = cv2.createBackgroundSubtractorMOG2(
+            history=mog2_history,
+            varThreshold=mog2_var_threshold,
+            detectShadows=False,
+        )
+        self._kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+
+        self._triggered = False   # True = already fired this product
+        self._clear_count = 0     # consecutive frames with no object (for re-arm)
+
+        print("[Trigger] MOG2 background subtractor ready.")
 
     def process_frame(self, frame, frame_count):
         """
-        Call this on every frame from the trigger camera.
-        Returns True exactly once per product (when it is centered).
+        Returns True exactly once per product entering the zone.
+        Re-arms only after the zone is clear for min_gap_frames consecutive checks.
         """
         if frame_count % self.check_every_n != 0:
             return False
 
-        centroid = self._detect_centroid(frame)
-        return self._step_state(centroid)
+        has_object = self._detect_object(frame)
 
-    def _detect_centroid(self, frame):
-        h, w = frame.shape[:2]
-        small = cv2.resize(frame, (640, 480))
-        results = self.model(small, verbose=False, conf=self.conf_thresh)
-
-        y_lo, y_hi = self.roi_y_band
-        boxes_in_roi = []
-        for box in results[0].boxes:
-            x1, y1, x2, y2 = box.xyxy[0].numpy()
-            # Normalize to 0–1
-            cx = ((x1 + x2) / 2) / 640
-            cy = ((y1 + y2) / 2) / 480
-            if y_lo <= cy <= y_hi:
-                boxes_in_roi.append((cx, cy))
-
-        if not boxes_in_roi:
-            return None
-        avg_cx = sum(b[0] for b in boxes_in_roi) / len(boxes_in_roi)
-        avg_cy = sum(b[1] for b in boxes_in_roi) / len(boxes_in_roi)
-        return (avg_cx, avg_cy)
-
-    def _step_state(self, centroid):
-        x_lo, x_hi = self.roi_x_center_band
-        fired = False
-
-        if self._state == _IDLE:
-            if centroid is not None:
-                self._state = _ENTERING
+        if not self._triggered:
+            if has_object:
+                self._triggered = True
                 self._clear_count = 0
-
-        elif self._state == _ENTERING:
-            if centroid is None:
-                self._state = _IDLE
-            elif x_lo <= centroid[0] <= x_hi:
-                self._state = _CENTERED
-                fired = True  # fire exactly once
-
-        elif self._state == _CENTERED:
-            if centroid is None or not (x_lo <= centroid[0] <= x_hi):
-                self._state = _EXITING
-                self._clear_count = 0
-
-        elif self._state == _EXITING:
-            if centroid is None:
-                self._clear_count += 1
-                # Re-arm only after zone has been empty for min_gap_frames checks
-                if self._clear_count >= self.min_gap_frames:
-                    self._state = _IDLE
-                    self._clear_count = 0
+                return True          # Fire — product detected
+        else:
+            if has_object:
+                self._clear_count = 0   # still present, keep waiting
             else:
-                self._clear_count = 0  # product still visible — keep waiting
+                self._clear_count += 1
+                if self._clear_count >= self.min_gap:
+                    self._triggered = False  # zone clear long enough — re-arm
+                    self._clear_count = 0
 
-        return fired
+        return False
+
+    def _detect_object(self, frame):
+        h, w = frame.shape[:2]
+        y1 = int(self.roi_y_band[0] * h)
+        y2 = int(self.roi_y_band[1] * h)
+        x1 = int(self.roi_x_center_band[0] * w)
+        x2 = int(self.roi_x_center_band[1] * w)
+
+        fg = self._bg.apply(frame)
+        roi = fg[y1:y2, x1:x2]
+
+        # Remove noise
+        roi = cv2.morphologyEx(roi, cv2.MORPH_OPEN, self._kernel)
+        roi = cv2.morphologyEx(roi, cv2.MORPH_CLOSE, self._kernel)
+
+        contours, _ = cv2.findContours(roi, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        total_area = sum(cv2.contourArea(c) for c in contours)
+        return total_area > self.min_area
+
+    def get_foreground_area(self, frame):
+        """For debug/preview — returns foreground pixel area in trigger zone."""
+        h, w = frame.shape[:2]
+        y1 = int(self.roi_y_band[0] * h)
+        y2 = int(self.roi_y_band[1] * h)
+        x1 = int(self.roi_x_center_band[0] * w)
+        x2 = int(self.roi_x_center_band[1] * w)
+        fg = self._bg.apply(frame, learningRate=0)  # don't update model
+        roi = fg[y1:y2, x1:x2]
+        roi = cv2.morphologyEx(roi, cv2.MORPH_OPEN, self._kernel)
+        contours, _ = cv2.findContours(roi, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        return sum(cv2.contourArea(c) for c in contours)
 
     def reset(self):
-        self._state = _IDLE
+        self._triggered = False
         self._clear_count = 0

@@ -24,11 +24,16 @@ class InspectionWorker(threading.Thread):
         self.result_writer = result_writer
         self.config = config
         self._stop_event = threading.Event()
+        self._ready_event = threading.Event()
         self._ai = None
+
+    def wait_ready(self, timeout=300):
+        """Block until models are fully loaded. Returns False if timeout."""
+        return self._ready_event.wait(timeout=timeout)
 
     def _load_models(self):
         from src.detect import AIInspectionSystem
-        print("[Worker] Loading AI models...")
+        print("[System] Loading AI models — this may take a minute on first run...")
         self._ai = AIInspectionSystem(
             barcode_model_path=self.config.BARCODE_DETECTOR_MODEL,
             ocr_model_path=self.config.DOTTED_OCR_MODEL,
@@ -37,7 +42,8 @@ class InspectionWorker(threading.Thread):
 
     def run(self):
         self._load_models()
-        print("[Worker] Ready — waiting for products.")
+        self._ready_event.set()   # unblocks ConveyorSystem.start()
+        print("[System] All models loaded. Ready to inspect.\n")
 
         while not self._stop_event.is_set():
             try:
