@@ -6,68 +6,66 @@ class TriggerDetector:
     def __init__(
         self,
         yolo_model_path="yolov8n.pt",
-        roi_y_band=(0.1, 0.9),
-        roi_x_center_band=(0.1, 0.9),
-        confidence_threshold=0.3,
-        check_every_n_frames=2,
-        min_gap_frames=20,
+        roi_y_band=(0.0, 1.0),
+        roi_x_center_band=(0.0, 1.0),
+        confidence_threshold=0.25,
+        check_every_n_frames=1,
+        # confirm/clear_frames no longer needed — tracker handles this
     ):
-        print("[Trigger] Loading YOLOv8n on CPU...")
+        print("[Trigger] Loading YOLOv8n with ByteTrack on CPU...")
         self.model = YOLO(yolo_model_path)
         self.model.to("cpu")
-        print("[Trigger] YOLOv8n ready.")
+        print("[Trigger] Ready.")
 
         self.roi_y_band = roi_y_band
         self.roi_x_center_band = roi_x_center_band
         self.conf_thresh = confidence_threshold
         self.check_every_n = check_every_n_frames
-        self.min_gap = min_gap_frames
 
-        self._triggered = False   # True = already fired, waiting for product to leave
-        self._clear_count = 0     # consecutive empty-zone checks before re-arming
+        self._fired_ids = set()   # track IDs we already fired for this session
+        self._active_ids = set()  # track IDs currently visible in frame
 
     def process_frame(self, frame, frame_count):
-        """
-        Returns True exactly once per product.
-        Re-arms only after the zone has been clear for min_gap consecutive checks.
-        """
         if frame_count % self.check_every_n != 0:
             return False
 
-        has_object = self._detect_in_zone(frame)
+        small = cv2.resize(frame, (320, 320))
 
-        if not self._triggered:
-            if has_object:
-                self._triggered = True
-                self._clear_count = 0
-                return True              # ← fire once
-        else:
-            if has_object:
-                self._clear_count = 0   # product still present, keep waiting
-            else:
-                self._clear_count += 1
-                if self._clear_count >= self.min_gap:
-                    self._triggered = False   # zone clear — re-arm for next product
-                    self._clear_count = 0
+        # ByteTrack keeps IDs alive across short gaps (handles YOLO flicker)
+        results = self.model.track(
+            small, verbose=False, persist=True, conf=self.conf_thresh
+        )
 
-        return False
+        current_ids = set()
+        if results[0].boxes.id is not None:
+            y_lo, y_hi = self.roi_y_band
+            x_lo, x_hi = self.roi_x_center_band
 
-    def _detect_in_zone(self, frame):
-        small = cv2.resize(frame, (640, 480))
-        results = self.model(small, verbose=False, conf=self.conf_thresh)
+            for box, tid in zip(results[0].boxes, results[0].boxes.id.int().tolist()):
+                x1, y1, x2, y2 = box.xyxy[0].numpy()
+                cx = ((x1 + x2) / 2) / 320
+                cy = ((y1 + y2) / 2) / 320
+                if x_lo <= cx <= x_hi and y_lo <= cy <= y_hi:
+                    current_ids.add(tid)
 
-        y_lo, y_hi = self.roi_y_band
-        x_lo, x_hi = self.roi_x_center_band
+        # When a track ID departs, clear it from fired_ids.
+        # This means the same product type returning later gets a fresh
+        # ByteTrack ID and will fire again — correct warehouse behaviour.
+        departed = self._active_ids - current_ids
+        for tid in departed:
+            self._fired_ids.discard(tid)
 
-        for box in results[0].boxes:
-            x1, y1, x2, y2 = box.xyxy[0].numpy()
-            cx = ((x1 + x2) / 2) / 640
-            cy = ((y1 + y2) / 2) / 480
-            if x_lo <= cx <= x_hi and y_lo <= cy <= y_hi:
-                return True
+        self._active_ids = current_ids
+
+        # New IDs we haven't fired for yet
+        new_ids = current_ids - self._fired_ids
+        if new_ids:
+            tid = next(iter(new_ids))
+            self._fired_ids.add(tid)
+            return True
 
         return False
 
     def reset(self):
-        self._triggered = False
-        self._clear_count = 0
+        self._fired_ids.clear()
+        self._active_ids.clear()

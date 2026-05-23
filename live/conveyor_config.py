@@ -28,9 +28,8 @@ YOLO_TRIGGER_MODEL = "yolov8n.pt"   # Auto-downloads via ultralytics
 TRIGGER_ROI_Y_BAND = (0.0, 1.0)
 TRIGGER_ROI_X_CENTER_BAND = (0.0, 1.0)
 
-TRIGGER_CONFIDENCE_THRESHOLD = 0.3  # Low threshold — catches boxes, bags, bottles etc.
-TRIGGER_MIN_GAP_FRAMES = 20         # Consecutive empty checks before re-arming (~2s)
-TRIGGER_CHECK_EVERY_N_FRAMES = 2    # Run YOLO every Nth frame
+TRIGGER_CONFIDENCE_THRESHOLD = 0.25  # Low — catches bags, boxes, bottles, cans
+TRIGGER_CHECK_EVERY_N_FRAMES = 1     # Run YOLO+ByteTrack every frame (320×320 = fast)
 
 # ── Frame Buffer & Sync ────────────────────────────────────────────────────────
 FRAME_BUFFER_SIZE = 90              # Frames per camera buffer (3s at 30fps)

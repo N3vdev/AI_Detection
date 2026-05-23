@@ -34,7 +34,6 @@ class ConveyorSystem:
             roi_x_center_band=config.TRIGGER_ROI_X_CENTER_BAND,
             confidence_threshold=config.TRIGGER_CONFIDENCE_THRESHOLD,
             check_every_n_frames=config.TRIGGER_CHECK_EVERY_N_FRAMES,
-            min_gap_frames=config.TRIGGER_MIN_GAP_FRAMES,
         )
         self._inspection_queue = queue.Queue(maxsize=config.INSPECTION_QUEUE_MAX)
         self._writer = ResultWriter(config.DB_PATH, config.JSON_LOG_PATH)
@@ -117,7 +116,7 @@ class ConveyorSystem:
                     if flashing:
                         cv2.rectangle(preview, (0, 0), (pw - 1, ph - 1), (0, 255, 0), 4)
 
-                    status = "SCANNING" if flashing else ("ARMED" if not self._trigger._triggered else "REMOVE PRODUCT")
+                    status = "SCANNING" if flashing else "READY"
                     cv2.putText(preview, f"#{seq}  Q:{self._inspection_queue.qsize()}",
                                 (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                     cv2.putText(preview, status,
