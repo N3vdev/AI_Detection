@@ -79,7 +79,31 @@ class AIInspectionSystem:
         self.qwen_processor = _VLProcessor.from_pretrained(qwen_model_id)
 
         load_kwargs = dict(device_map="auto")
-        load_kwargs["torch_dtype"] = torch.float16 if self.device == "cuda" else torch.float32
+
+        if self.device == "cuda":
+            free_vram, _ = torch.cuda.mem_get_info(0)
+            free_gb = free_vram / 1024 ** 3
+            print(f"[System] Free VRAM: {free_gb:.1f} GB")
+            if free_gb < 12.0:
+                # 4-bit quantization — fits in ~5 GB, minor accuracy loss
+                try:
+                    from transformers import BitsAndBytesConfig
+                    load_kwargs["quantization_config"] = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_compute_dtype=torch.float16,
+                        bnb_4bit_use_double_quant=True,
+                        bnb_4bit_quant_type="nf4",
+                    )
+                    print("[System] 4-bit quantization enabled (low VRAM mode).")
+                except ImportError:
+                    print("[Warning] bitsandbytes not installed — loading in float16 (may OOM).")
+                    load_kwargs["torch_dtype"] = torch.float16
+            else:
+                load_kwargs["torch_dtype"] = torch.float16
+                print("[System] Loading in float16.")
+        else:
+            load_kwargs["torch_dtype"] = torch.float32
+
         try:
             import flash_attn  # noqa
             load_kwargs["attn_implementation"] = "flash_attention_2"

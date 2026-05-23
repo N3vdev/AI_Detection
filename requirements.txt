@@ -13,8 +13,8 @@ huggingface-hub
 sentencepiece
 tiktoken
 
-# Optional: 4-bit quantization for smaller GPUs (requires CUDA toolkit)
-# pip install bitsandbytes
+# 4-bit quantization — required for GPUs with <12 GB free VRAM (RTX 4060 etc.)
+bitsandbytes
 
 # Optional: Flash Attention 2 for 2-4× faster inference on Ampere/Ada GPUs
 # pip install flash-attn --no-build-isolation
