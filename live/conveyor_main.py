@@ -28,13 +28,12 @@ class ConveyorSystem:
             min_variance=config.SHARPNESS_MIN_VARIANCE,
         )
         self._trigger = TriggerDetector(
+            yolo_model_path=config.YOLO_TRIGGER_MODEL,
             roi_y_band=config.TRIGGER_ROI_Y_BAND,
             roi_x_center_band=config.TRIGGER_ROI_X_CENTER_BAND,
-            min_contour_area=config.TRIGGER_MIN_AREA,
-            min_gap_frames=config.TRIGGER_MIN_GAP_FRAMES,
+            confidence_threshold=config.TRIGGER_CONFIDENCE_THRESHOLD,
             check_every_n_frames=config.TRIGGER_CHECK_EVERY_N_FRAMES,
-            mog2_history=config.MOG2_HISTORY,
-            mog2_var_threshold=config.MOG2_VAR_THRESHOLD,
+            min_gap_frames=config.TRIGGER_MIN_GAP_FRAMES,
         )
         self._inspection_queue = queue.Queue(maxsize=config.INSPECTION_QUEUE_MAX)
         self._writer = ResultWriter(config.DB_PATH, config.JSON_LOG_PATH)
@@ -116,13 +115,6 @@ class ConveyorSystem:
 
                     # Show trigger zone box
                     cv2.rectangle(preview, (x1_zone, y1_zone), (x2_zone, y2_zone), zone_color, 2)
-
-                    # Foreground area indicator
-                    fg_area = self._trigger.get_foreground_area(frame)
-                    bar_w = min(int(fg_area / config.TRIGGER_MIN_AREA * 200), 200)
-                    bar_color = (0, 255, 0) if fg_area > config.TRIGGER_MIN_AREA else (100, 100, 255)
-                    cv2.rectangle(preview, (10, 50), (10 + bar_w, 70), bar_color, -1)
-                    cv2.rectangle(preview, (10, 50), (210, 70), (200, 200, 200), 1)
 
                     status = "SCANNING..." if flashing else ("ARMED" if not self._trigger._triggered else "WAITING — remove product")
                     cv2.putText(preview, f"#{seq}  Queue:{self._inspection_queue.qsize()}  {status}",

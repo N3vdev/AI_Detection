@@ -13,18 +13,15 @@ CAMERA_FPS = 30
 
 # ── Trigger Camera ─────────────────────────────────────────────────────────────
 TRIGGER_CAMERA_INDEX = 0            # Index into CAMERA_INDICES list
+YOLO_TRIGGER_MODEL = "yolov8n.pt"   # Auto-downloads via ultralytics
 
-# Trigger zone — normalized (0.0–1.0) region of the frame to watch
-TRIGGER_ROI_Y_BAND = (0.1, 0.9)    # Tall band — catches products at any height
-TRIGGER_ROI_X_CENTER_BAND = (0.1, 0.9)  # Wide band — whole frame center
+# Trigger zone — normalized (0.0–1.0). Wide zone catches products at any position.
+TRIGGER_ROI_Y_BAND = (0.1, 0.9)
+TRIGGER_ROI_X_CENTER_BAND = (0.1, 0.9)
 
-# MOG2 background subtraction settings
-MOG2_HISTORY = 300                  # Frames to build background model
-MOG2_VAR_THRESHOLD = 40             # Sensitivity — lower = more sensitive
-TRIGGER_MIN_AREA = 3000             # Min foreground px² to count as a product
-                                    # Increase if getting false triggers from noise
-TRIGGER_MIN_GAP_FRAMES = 20        # Consecutive clear checks before re-arming
-TRIGGER_CHECK_EVERY_N_FRAMES = 2   # Run detection every Nth frame (~15fps checks)
+TRIGGER_CONFIDENCE_THRESHOLD = 0.3  # Low threshold — catches boxes, bags, bottles etc.
+TRIGGER_MIN_GAP_FRAMES = 20         # Consecutive empty checks before re-arming (~2s)
+TRIGGER_CHECK_EVERY_N_FRAMES = 2    # Run YOLO every Nth frame
 
 # ── Frame Buffer & Sync ────────────────────────────────────────────────────────
 FRAME_BUFFER_SIZE = 90              # Frames per camera buffer (3s at 30fps)
