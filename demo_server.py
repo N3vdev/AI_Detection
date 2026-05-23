@@ -20,6 +20,7 @@ import sys
 import time
 import tempfile
 from contextlib import asynccontextmanager
+from typing import List
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -57,26 +58,32 @@ async def index():
 
 
 @app.post("/inspect")
-async def inspect(image: UploadFile = File(...)):
+async def inspect(images: List[UploadFile] = File(...)):
     if _ai is None:
         raise HTTPException(503, "Models not loaded yet — try again in a moment")
+    if not images:
+        raise HTTPException(400, "No images provided")
 
-    ext = os.path.splitext(image.filename or "")[1].lower()
-    if ext not in _ALLOWED_EXT:
-        ext = ".jpg"
-
-    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-        tmp.write(await image.read())
-        path = tmp.name
-
+    paths = []
     try:
+        for upload in images:
+            ext = os.path.splitext(upload.filename or "")[1].lower()
+            if ext not in _ALLOWED_EXT:
+                ext = ".jpg"
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+                tmp.write(await upload.read())
+                paths.append(tmp.name)
+
         t0 = time.time()
-        result = _ai.inspect_product([path])
+        result = _ai.inspect_product(paths)
         result["processing_ms"] = int((time.time() - t0) * 1000)
     finally:
-        os.unlink(path)
+        for p in paths:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
 
-    # Strip internal fields not useful to the client
     result.pop("images", None)
     result.pop("dotted_label_text", None)
 
