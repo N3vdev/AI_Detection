@@ -1,10 +1,10 @@
 # ── Camera Setup ───────────────────────────────────────────────────────────────
-CAMERA_INDICES = [0, 1, 2]          # cv2.VideoCapture device indices
+CAMERA_INDICES = [0]                # cv2.VideoCapture device indices (1 webcam for testing)
 CAMERA_RESOLUTION = (1280, 720)     # Width x Height
 CAMERA_FPS = 30
 
 # ── Trigger Camera (center camera watches for products) ────────────────────────
-TRIGGER_CAMERA_INDEX = 1            # Index into CAMERA_INDICES list
+TRIGGER_CAMERA_INDEX = 0            # Index into CAMERA_INDICES list
 
 # ROI: normalized (0.0–1.0) bands within the frame where products pass through
 TRIGGER_ROI_Y_BAND = (0.25, 0.75)       # Vertical band
