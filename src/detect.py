@@ -381,36 +381,6 @@ class AIInspectionSystem:
                 found["batch_number"] = m.group(1)
         return found
 
-    # ── Auto-orientation ───────────────────────────────────────────────────────
-
-    def _best_rotation(self, img_bgr):
-        """Return img rotated to the best upright orientation (0° or 180°).
-
-        Strategy:
-        1. If barcode detector loaded: run it on both orientations, pick the one
-           with higher max confidence. Fast signal — ~30 ms per call on GPU.
-        2. Fallback (no barcode / low confidence): Sobel-Y edge-density heuristic.
-           Product labels are top-heavy (logo/name at top, date at bottom), so the
-           top third has more horizontal edge energy when upright. ~3 ms.
-        """
-        img_180 = cv2.rotate(img_bgr, cv2.ROTATE_180)
-
-        if self.barcode_detector:
-            def _max_conf(img):
-                res = self.barcode_detector(img, verbose=False)
-                return max((b.conf[0].item() for r in res for b in r.boxes), default=0.0)
-
-            c0, c180 = _max_conf(img_bgr), _max_conf(img_180)
-            if c180 > c0 and c180 > 0.15:
-                print("[Orient] Rotated 180° (barcode signal)")
-                return img_180
-            if c0 > 0.15:
-                return img_bgr  # already correct, no message needed
-
-        # No reliable signal — return as-is.
-        # Sobel heuristic removed: it incorrectly flipped phone photos.
-        return img_bgr
-
     # ── YOLO-World region detection ────────────────────────────────────────────
 
     def _detect_regions(self, img_bgr, conf=0.08):
@@ -492,13 +462,6 @@ class AIInspectionSystem:
             _rdir = None
             def _dbg(name, img):
                 pass  # no-op in production
-
-        # ── Auto-orient (fix upside-down products) ─────────────────────────────
-        print(f"[Orient] Checking orientation on {len(loaded)} image(s)...")
-        loaded = [(path, self._best_rotation(img)) for path, img in loaded]
-
-        for i, (_, img) in enumerate(loaded):
-            _dbg(f'1_oriented_{i}.jpg', img)
 
         # ── Phase 1: Barcode ───────────────────────────────────────────────────
         print(f"[Phase 1] Scanning {len(loaded)} image(s) for barcode...")
