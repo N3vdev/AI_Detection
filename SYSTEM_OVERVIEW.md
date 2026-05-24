@@ -105,7 +105,7 @@ Can be shared over the internet using Cloudflare Tunnel — gives a public HTTPS
 
 Before running anything, make sure the following are installed on the machine:
 
-1. **Python 3.13** — download from python.org. During install, tick "Add Python to PATH".
+1. **Python 3.13** — download from python.org. During install, tick **"Add Python to PATH"**. `pip` is included with Python — no separate install needed.
 2. **CUDA 12.x drivers** — install the latest NVIDIA driver for the GPU. The CUDA toolkit is not needed separately; PyTorch bundles it.
 
 ---
@@ -118,13 +118,15 @@ Unzip the provided archive into any folder, for example `C:\AI_Inspector\`. The 
 
 ### Step 2 — Install Python Dependencies
 
-Open a terminal in the extracted folder and run:
+This happens automatically. On the first run, `run_demo.bat` detects that dependencies have not been installed yet and runs `pip install -r requirements.txt` before starting anything. Subsequent runs skip this step entirely.
+
+If you prefer to install manually beforehand, open a terminal in the extracted folder and run:
 
 ```
 pip install -r requirements.txt
 ```
 
-This installs all required libraries. PyTorch is pulled with CUDA 12.6 support automatically. First-time install takes a few minutes depending on internet speed.
+PyTorch is pulled with CUDA 12.6 support automatically. First-time install takes a few minutes depending on internet speed.
 
 On first run, the following model weights are downloaded automatically and cached locally:
 - **Qwen2.5-VL-3B-Instruct** (~7 GB) — vision language model

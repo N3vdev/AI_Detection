@@ -6,8 +6,27 @@ echo  ============================================
 echo   AI Product Inspector — Test Mode
 echo  ============================================
 echo.
+
+:: Install dependencies on first run only
+if not exist "%~dp0.installed" (
+    echo  First run detected — installing Python dependencies...
+    echo  This may take several minutes. Do not close this window.
+    echo.
+    pip install -r "%~dp0requirements.txt"
+    if errorlevel 1 (
+        echo.
+        echo  ERROR: pip install failed. Check your Python and internet connection.
+        pause
+        exit /b 1
+    )
+    echo. > "%~dp0.installed"
+    echo.
+    echo  Dependencies installed successfully.
+    echo.
+)
+
 echo  Starting AI server...
-echo  Models will load — this takes 1-2 minutes on first run.
+echo  Models will load on first run — this can take 1-2 minutes.
 echo.
 
 :: Start the AI server in a new window
