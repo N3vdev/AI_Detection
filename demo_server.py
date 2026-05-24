@@ -2,7 +2,7 @@
 AI Product Inspector — Web Demo Server
 =======================================
 Install deps (one-time, separate from main requirements):
-    pip install fastapi "uvicorn[standard]" python-multipart psutil pynvml
+    pip install fastapi "uvicorn[standard]" python-multipart
 
 Run server:
     cd d:\\Projects\\AI_Detection
@@ -16,47 +16,15 @@ Then share the https://xxxx.trycloudflare.com URL with anyone.
 """
 
 import asyncio
-import collections
 import os
 import sys
 import time
 import tempfile
-import threading
 from contextlib import asynccontextmanager
 from typing import List
 
-import psutil
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
-
-# GPU monitoring via pynvml
-_nvml_handle = None
-try:
-    import pynvml
-    pynvml.nvmlInit()
-    _nvml_handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-except Exception:
-    pass
-
-# Background sampler — polls every 200 ms so no spike is missed between
-# the frontend's 1-second polls. /stats returns max over last 5 samples (~1s).
-_cpu_ring = collections.deque(maxlen=5)
-_gpu_ring = collections.deque(maxlen=5)
-psutil.cpu_percent(interval=None)   # seed so first read is non-zero
-
-def _stat_sampler():
-    while True:
-        _cpu_ring.append(round(psutil.cpu_percent(interval=None)))
-        gpu = 0
-        if _nvml_handle is not None:
-            try:
-                gpu = pynvml.nvmlDeviceGetUtilizationRates(_nvml_handle).gpu
-            except Exception:
-                pass
-        _gpu_ring.append(gpu)
-        time.sleep(0.2)
-
-threading.Thread(target=_stat_sampler, daemon=True, name="StatSampler").start()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -83,13 +51,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Product Inspector", lifespan=lifespan)
-
-
-@app.get("/stats")
-async def stats():
-    cpu = max(_cpu_ring) if _cpu_ring else 0
-    gpu = max(_gpu_ring) if _gpu_ring else 0
-    return {"cpu": cpu, "gpu": gpu}
 
 
 @app.get("/", response_class=HTMLResponse)
