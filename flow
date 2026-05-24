@@ -1,15 +1,8 @@
-
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     103.50.23.165:0 - "GET / HTTP/1.1" 200 OK
-[Orient] Checking orientation on 1 image(s)...
-[Orient] Rotated 180° (edge heuristic)
-[Phase 1] Scanning 1 image(s) for barcode...
-WARNING: .\zbar\decoder\pdf417.c:89: <unknown>: Assertion "g[0] >= 0 && g[1] >= 0 && g[2] >= 0" failed.
-        dir=0 sig=1b6e1 k=6 g0=b64 g1=ffffffff g2=c9d buf[0000]=
-WARNING: .\zbar\decoder\pdf417.c:89: <unknown>: Assertion "g[0] >= 0 && g[1] >= 0 && g[2] >= 0" failed.
-        dir=0 sig=346d k=3 g0=ed6 g1=ffffffff g2=4d7 buf[0000]=
+INFO:     103.50.23.165:0 - "POST /inspect HTTP/1.1" 200 OK
+[Orient] Checking orientation on 2 image(s)...
+[Phase 1] Scanning 2 image(s) for barcode...
 [Phase 1] No barcode — moving to Phase 2.
+Resized image size (8064x6048) exceeds max_side_limit of 4000. Resizing to fit within limit.
 INFO:     103.50.23.165:0 - "POST /inspect HTTP/1.1" 500 Internal Server Error
 ERROR:    Exception in ASGI application
 Traceback (most recent call last):
@@ -63,13 +56,38 @@ Traceback (most recent call last):
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "D:\Codes\AI Detection Model\demo_server.py", line 77, in inspect
     result = _ai.inspect_product(paths)
-  File "D:\Codes\AI Detection Model\src\detect.py", line 456, in inspect_product
+  File "D:\Codes\AI Detection Model\src\detect.py", line 455, in inspect_product
     t = self._read_paddleocr(img_up)
-  File "D:\Codes\AI Detection Model\src\detect.py", line 261, in _read_paddleocr
-    result = self.ocr_reader.ocr(img_bgr, cls=True)
+  File "D:\Codes\AI Detection Model\src\detect.py", line 260, in _read_paddleocr
+    result = self.ocr_reader.ocr(img_bgr)
   File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\warnings.py", line 637, in wrapper
     return arg(*args, **kwargs)
   File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\ocr.py", line 231, in ocr
     return self.predict(img, **kwargs)
            ~~~~~~~~~~~~^^^^^^^^^^^^^^^
-TypeError: PaddleOCR.predict() got an unexpected keyword argument 'cls'
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\ocr.py", line 213, in predict
+    return list(
+        self.predict_iter(
+    ...<11 lines>...
+        )
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 161, in predict
+    yield from self._pipeline.predict(
+    ...<3 lines>...
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\ocr\pipeline.py", line 366, in predict
+    det_results = list(
+        self.text_det_model(doc_preprocessor_images, **text_det_params)
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\predictors\base_predictor.py", line 117, in __call__
+    yield from self.apply(input, **kwargs)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\predictors\base_predictor.py", line 140, in apply
+    pred = self.process(batch_data, **kwargs)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\text_detection\predictor.py", line 136, in process
+    batch_preds = self.runner(x=x)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\runners\paddle_static\runner.py", line 297, in __call__
+    pred = self.infer(x)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\runners\paddle_static\runner.py", line 265, in __call__
+    self.predictor.run()
+    ~~~~~~~~~~~~~~~~~~^^
+NotImplementedError: (Unimplemented) ConvertPirAttribute2Runtime

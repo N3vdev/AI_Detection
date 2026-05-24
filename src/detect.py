@@ -257,7 +257,7 @@ class AIInspectionSystem:
     # ── EasyOCR text reader ────────────────────────────────────────────────────
 
     def _read_paddleocr(self, img_bgr):
-        result = self.ocr_reader.ocr(img_bgr, cls=True)
+        result = self.ocr_reader.ocr(img_bgr)
         if not result or result[0] is None:
             return ''
         texts = []
