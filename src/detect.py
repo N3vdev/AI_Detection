@@ -185,7 +185,7 @@ class AIInspectionSystem:
         self.ocr_reader = PaddleOCR(
             use_angle_cls=True,
             lang='en',
-            device='gpu' if self.device == 'cuda' else 'cpu',
+            device='cpu',  # GPU occupied by Qwen; OCR models are fast on CPU
         )
         self.ocr_ready = True
         print("[System] PaddleOCR loaded.")

@@ -34,9 +34,7 @@ pyzbar
 # ── OCR ───────────────────────────────────────────────────────────────────────
 # PaddleOCR replaces custom CRNN — PP-OCRv4 handles inkjet/dotted labels reliably
 #
-# Step 1 — install PaddlePaddle GPU (CUDA 12.6, compatible with CUDA 13.x drivers):
-#   pip install paddlepaddle-gpu -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
-# If Python 3.13 wheel is unavailable, fall back to CPU:
+# Step 1 — install PaddlePaddle (CPU — GPU version has cuDNN DLL conflicts on Windows):
 #   pip install paddlepaddle
 #
 # Step 2 — install PaddleOCR:
