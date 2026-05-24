@@ -1,22 +1,10 @@
-D:\Codes\AI Detection Model>python run_conveyor.py
-[Trigger] Loading YOLOv8n on CPU...
-[Trigger] Ready.
-[System] Loading AI models, please wait...
-[System] Loading AI models — this may take a minute on first run...
-[System] Initializing AI Inspection Pipeline...
-[System] Device: CUDA
-[System] Barcode detector loaded.
-[System] Loading Qwen/Qwen2.5-VL-3B-Instruct...
-[System] Free VRAM: 6.9 GB
-[System] 4-bit quantization enabled (low VRAM mode).
-W0524 12:13:05.120000 15960 site-packages\torch\utils\flop_counter.py:29] triton not found; flop counting will not work for triton kernels
-Fetching 2 files: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:00<00:00, 43018.50it/s]
-Download complete: : 0.00B [00:00, ?B/s]                                                                                                                 | 0/2 [00:00<?, ?it/s]
-Loading weights:   0%|▏                                                                                                                        | 1/824 [00:00<02:29,  5.49it/s]C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\bitsandbytes\backends\cuda\ops.py:213: FutureWarning: _check_is_size will be removed in a future PyTorch release along with guard_size_oblivious.     Use _check(i >= 0) instead.
-  torch._check_is_size(blocksize)
-Loading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 824/824 [00:02<00:00, 281.97it/s]
 [System] Qwen/Qwen2.5-VL-3B-Instruct loaded.
 [System] Loading PaddleOCR...
+Creating model: ('PP-LCNet_x1_0_doc_ori', None, None)
+Model files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\nevin\.paddlex\official_models\PP-LCNet_x1_0_doc_ori`.
+INFO: Could not find files for the given pattern(s).
+C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddle\utils\cpp_extension\extension_utils.py:712: UserWarning: No ccache found. Please be aware that recompiling all source files may be required. You can download and install ccache from: https://github.com/ccache/ccache/blob/master/doc/INSTALL.md
+  warnings.warn(warning_message)
 Exception in thread InspectionWorker:
 Traceback (most recent call last):
   File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1041, in _bootstrap_inner
@@ -39,21 +27,139 @@ Traceback (most recent call last):
                       ~~~~~~~~~^
         use_angle_cls=True,
         ^^^^^^^^^^^^^^^^^^^
-    ...<2 lines>...
-        show_log=False,
-        ^^^^^^^^^^^^^^^
+        lang='en',
+        ^^^^^^^^^^
+        device='gpu' if self.device == 'cuda' else 'cpu',
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     )
     ^
   File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\ocr.py", line 163, in __init__
     super().__init__(**base_params)
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\base.py", line 63, in __init__
-    self._common_args = parse_common_args(
-                        ~~~~~~~~~~~~~~~~~^
-        common_args, default_enable_hpi=_DEFAULT_ENABLE_HPI
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\base.py", line 67, in __init__
+    self.paddlex_pipeline = self._create_paddlex_pipeline()
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\base.py", line 105, in _create_paddlex_pipeline
+    return create_pipeline(config=self._merged_paddlex_config, **kwargs)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\__init__.py", line 169, in create_pipeline
+    pipeline = BasePipeline.get(pipeline_name)(
+        config=config,
+    ...<6 lines>...
+        **kwargs,
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\utils\deps.py", line 208, in _wrapper
+    return old_init_func(self, *args, **kwargs)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 135, in __init__
+    self._pipeline = self._create_internal_pipeline(config, self.device)
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 190, in _create_internal_pipeline
+    pipeline = self._pipeline_cls(
+        config,
+    ...<6 lines>...
+        **self._init_kwargs,
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\ocr\pipeline.py", line 85, in __init__
+    self.doc_preprocessor_pipeline = self.create_pipeline(
+                                     ~~~~~~~~~~~~~~~~~~~~^
+        doc_preprocessor_config
+        ^^^^^^^^^^^^^^^^^^^^^^^
     )
     ^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_common_args.py", line 53, in parse_common_args
-    raise ValueError(f"Unknown argument: {name}")
-ValueError: Unknown argument: show_log
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\base.py", line 181, in create_pipeline
+    return create_pipeline(
+        config=config,
+    ...<8 lines>...
+        **kwargs,
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\__init__.py", line 169, in create_pipeline
+    pipeline = BasePipeline.get(pipeline_name)(
+        config=config,
+    ...<6 lines>...
+        **kwargs,
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\utils\deps.py", line 208, in _wrapper
+    return old_init_func(self, *args, **kwargs)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 135, in __init__
+    self._pipeline = self._create_internal_pipeline(config, self.device)
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 190, in _create_internal_pipeline
+    pipeline = self._pipeline_cls(
+        config,
+    ...<6 lines>...
+        **self._init_kwargs,
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\doc_preprocessor\pipeline.py", line 78, in __init__
+    self.doc_ori_classify_model = self.create_model(doc_ori_classify_config)
+                                  ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\base.py", line 143, in create_model
+    return create_predictor(
+        model_name=config["model_name"],
+    ...<9 lines>...
+        **kwargs,
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\__init__.py", line 470, in create_predictor
+    create_kwargs = _build_predictor_kwargs(
+        binding=predictor_binding,
+    ...<6 lines>...
+        inference_engine=requested_engine,
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\__init__.py", line 339, in _build_predictor_kwargs
+    runner = _build_predictor_runner(
+        predictor_cls=predictor_cls,
+    ...<5 lines>...
+        engine_config=normalized_engine_config,
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\__init__.py", line 312, in _build_predictor_runner
+    return inference_engine.build_runner(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        model_name=model_name,
+        ^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        binding=binding,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\engines\_base.py", line 190, in build_runner
+    runner = runner_builder(
+        model_name=model_name,
+    ...<3 lines>...
+        default_builder=self.get_default_runner_builder(),
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\engines\paddle.py", line 116, in runner_builder
+    return PaddleStaticRunner(
+        model_name=model_name,
+    ...<2 lines>...
+        config=runner_config,
+    )
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\utils\deps.py", line 158, in _wrapper
+    return old_init_func(self, *args, **kwargs)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\runners\paddle_static\runner.py", line 285, in __init__
+    self._config = resolve_paddle_static_engine_config(model_name, config)
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\runners\paddle_static\runner.py", line 80, in resolve_paddle_static_engine_config
+    setattr(pp, k, v)
+    ~~~~~~~^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\runners\paddle_static\config\pp_option.py", line 184, in device_type
+    set_env_for_device_type(device_type)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\utils\deps.py", line 145, in _wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\utils\device.py", line 119, in set_env_for_device_type
+    paddle = import_paddle()
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\utils\import_guard.py", line 23, in import_paddle
+    return import_paddle_module("paddle")
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\utils\import_guard.py", line 34, in import_paddle_module
+    return importlib.import_module(module_name)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\importlib\__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1022, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddle\__init__.py", line 964, in <module>
+    raise err
+OSError: [WinError 127] The specified procedure could not be found. Error loading "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddle\..\nvidia\cudnn\bin\cudnn_cnn64_9.dll" or one of its dependencies.
