@@ -7,8 +7,10 @@ import numpy as np
 from PIL import Image
 from ultralytics import YOLO
 
-# Disable Intel oneDNN before PaddlePaddle loads — avoids ConvertPirAttribute crash on Windows
-os.environ['FLAGS_use_mkldnn'] = '0'
+# Disable PaddlePaddle's PIR executor and oneDNN before the C extension loads.
+# ConvertPirAttribute2RuntimeAttribute crash on Windows is caused by PIR + oneDNN.
+os.environ['FLAGS_enable_pir_api'] = '0'   # use legacy Executor, not PIR
+os.environ['FLAGS_use_mkldnn'] = '0'       # disable Intel oneDNN
 os.environ['PADDLE_DISABLE_ONEDNN'] = '1'
 from paddleocr import PaddleOCR
 
@@ -261,7 +263,11 @@ class AIInspectionSystem:
     # ── EasyOCR text reader ────────────────────────────────────────────────────
 
     def _read_paddleocr(self, img_bgr):
-        result = self.ocr_reader.ocr(img_bgr)
+        try:
+            result = self.ocr_reader.ocr(img_bgr)
+        except Exception as e:
+            print(f"[OCR] PaddleOCR failed: {e}")
+            return ''
         if not result or result[0] is None:
             return ''
         texts = []
