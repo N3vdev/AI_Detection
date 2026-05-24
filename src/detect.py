@@ -373,19 +373,8 @@ class AIInspectionSystem:
             if c0 > 0.15:
                 return img_bgr  # already correct, no message needed
 
-        # Sobel fallback
-        def _edge_top_score(img):
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            small = cv2.resize(gray, (256, 256))
-            gy = cv2.Sobel(small, cv2.CV_32F, 0, 1)
-            return float(np.sum(np.abs(gy[:85]))) - float(np.sum(np.abs(gy[171:])))
-
-        s0, s180 = _edge_top_score(img_bgr), _edge_top_score(img_180)
-        # Require a 20% margin to avoid flipping correctly-oriented photos
-        if s180 > s0 and (s180 - s0) > max(abs(s0), abs(s180)) * 0.20:
-            print("[Orient] Rotated 180° (edge heuristic)")
-            return img_180
-
+        # No reliable signal — return as-is.
+        # Sobel heuristic removed: it incorrectly flipped phone photos.
         return img_bgr
 
     # ── Main pipeline ──────────────────────────────────────────────────────────
