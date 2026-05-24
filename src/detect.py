@@ -297,7 +297,7 @@ class AIInspectionSystem:
 
     # ── EasyOCR text reader ────────────────────────────────────────────────────
 
-    def _read_paddleocr(self, img_bgr):
+    def _read_paddleocr(self, img_bgr, min_conf=0.25):
         try:
             self._last_ocr_raw = self.ocr_reader.readtext(
                 img_bgr, detail=1, paragraph=False, min_size=5
@@ -306,7 +306,7 @@ class AIInspectionSystem:
             print(f"[OCR] EasyOCR failed: {e}")
             self._last_ocr_raw = []
             return ''
-        return ' '.join(text for (_, text, conf) in self._last_ocr_raw if conf > 0.25)
+        return ' '.join(text for (_, text, conf) in self._last_ocr_raw if conf > min_conf)
 
     def _dbg_ocr_overlay(self, img_bgr):
         """Draw EasyOCR detections from last _read_paddleocr call onto a copy."""
@@ -570,12 +570,16 @@ class AIInspectionSystem:
                 print("[World] No regions detected — Qwen will read full images")
 
         # ── Phase 2: EasyOCR ──────────────────────────────────────────────────
-        # Only run OCR on YOLO-World crops — these contain the label/text area.
-        # Running EasyOCR on full high-res images produces garbage text that
-        # Phase 4 regex picks up as wrong dates. If no crops, skip OCR and let
-        # Qwen handle everything.
+        # Prefer YOLO-World label crops (focused → less noise).
+        # If YOLO-World found nothing, run on full images with a stricter
+        # confidence threshold (0.40 vs 0.25) to suppress background garbage.
         _OCR_CLASSES = ["product label", "label sticker", "ingredient list", "nutrition facts panel"]
         ocr_targets = [regions[c] for c in _OCR_CLASSES if c in regions]
+        if ocr_targets:
+            _ocr_conf = 0.25   # relaxed — focused crop, mostly real text
+        else:
+            ocr_targets = [img for _, img in loaded]
+            _ocr_conf = 0.40   # strict — full image, filter background noise
 
         _OCR_TARGET = 1920
         _clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -596,11 +600,11 @@ class AIInspectionSystem:
                 lab[..., 0] = _clahe.apply(lab[..., 0])
                 img_up = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
                 _dbg(f'3_ocr_input_{_ocr_idx}.jpg', img_up)
-                t = self._read_paddleocr(img_up)
+                t = self._read_paddleocr(img_up, min_conf=_ocr_conf)
                 _dbg(f'3_ocr_output_{_ocr_idx}.jpg', self._dbg_ocr_overlay(img_up))
                 _ocr_idx += 1
                 if t.strip():
-                    print(f"[OCR] Text: {t}")
+                    print(f"[OCR] Text (conf≥{_ocr_conf}): {t}")
                     if not result["dotted_label_text"]:
                         result["dotted_label_text"] = t
                     ocr_text_parts.append(t)
