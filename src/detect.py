@@ -185,8 +185,7 @@ class AIInspectionSystem:
         self.ocr_reader = PaddleOCR(
             use_angle_cls=True,
             lang='en',
-            use_gpu=(self.device == 'cuda'),
-            show_log=False,
+            device='gpu' if self.device == 'cuda' else 'cpu',
         )
         self.ocr_ready = True
         print("[System] PaddleOCR loaded.")
