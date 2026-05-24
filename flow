@@ -1,93 +1,20 @@
+INFO:     103.50.23.154:0 - "POST /inspect HTTP/1.1" 200 OK
 [Orient] Checking orientation on 2 image(s)...
-[Orient] Rotated 180° (edge heuristic)
 [Orient] Rotated 180° (edge heuristic)
 [Phase 1] Scanning 2 image(s) for barcode...
 [Phase 1] No barcode — moving to Phase 2.
-INFO:     103.50.23.174:0 - "POST /inspect HTTP/1.1" 500 Internal Server Error
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 409, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        self.scope, self.receive, self.send
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
-    await super().__call__(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\applications.py", line 112, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
-    raise exc
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
-    await self.app(scope, receive, _send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 715, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 735, in app
-    await route.handle(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 288, in handle
-    await self.app(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 76, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 73, in app
-    response = await f(request)
-               ^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 301, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-    )
-    ^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
-    return await dependant.call(**values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\Codes\AI Detection Model\demo_server.py", line 77, in inspect
-    result = _ai.inspect_product(paths)
-  File "D:\Codes\AI Detection Model\src\detect.py", line 472, in inspect_product
-    t = self._read_paddleocr(img_up)
-  File "D:\Codes\AI Detection Model\src\detect.py", line 260, in _read_paddleocr
-    result = self.ocr_reader.ocr(img_bgr)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\warnings.py", line 637, in wrapper
-    return arg(*args, **kwargs)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\ocr.py", line 231, in ocr
-    return self.predict(img, **kwargs)
-           ~~~~~~~~~~~~^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\ocr.py", line 213, in predict
-    return list(
-        self.predict_iter(
-    ...<11 lines>...
-        )
-    )
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 161, in predict
-    yield from self._pipeline.predict(
-    ...<3 lines>...
-    )
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\ocr\pipeline.py", line 366, in predict
-    det_results = list(
-        self.text_det_model(doc_preprocessor_images, **text_det_params)
-    )
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\predictors\base_predictor.py", line 117, in __call__
-    yield from self.apply(input, **kwargs)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\predictors\base_predictor.py", line 140, in apply
-    pred = self.process(batch_data, **kwargs)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\text_detection\predictor.py", line 136, in process
-    batch_preds = self.runner(x=x)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\runners\paddle_static\runner.py", line 297, in __call__
-    pred = self.infer(x)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\runners\paddle_static\runner.py", line 265, in __call__
-    self.predictor.run()
-    ~~~~~~~~~~~~~~~~~~^^
-NotImplementedError: (Unimplemented) ConvertPirAttribute2RuntimeAttribute not support [pir::ArrayAttribute<pir::DoubleAttribute>]  (at ..\paddle\fluid\framework\new_executor\instruction\onednn\onednn_instruction.cc:118)
+[OCR] PaddleOCR failed: (Unimplemented) ConvertPirAttribute2RuntimeAttribute not support [pir::ArrayAttribute<pir::DoubleAttribute>]  (at ..\paddle\fluid\framework\new_executor\instruction\onednn\onednn_instruction.cc:118)
+
+[OCR] PaddleOCR failed: (Unimplemented) ConvertPirAttribute2RuntimeAttribute not support [pir::ArrayAttribute<pir::DoubleAttribute>]  (at ..\paddle\fluid\framework\new_executor\instruction\onednn\onednn_instruction.cc:118)
+
+[Phase 3] Qwen2.5-VL on 2 image(s)...
+[Qwen] Tokenizing 2 image(s)...
+[Qwen] Input tokens: 1400 — running inference...
+[Qwen] Done in 6.3s
+Response:
+Brand: Amul
+Product: Trumana Mango Ice Cream
+Category: Food
+Expiry: 28.06.21
+MFG: 20.04.21
+Batch: 537
