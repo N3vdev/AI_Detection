@@ -22,7 +22,7 @@ PREVIEW_HEIGHT = 640
 
 # ── Trigger Camera ─────────────────────────────────────────────────────────────
 TRIGGER_CAMERA_INDEX = 0            # Index into CAMERA_INDICES list
-YOLO_TRIGGER_MODEL = "yolov8n.pt"   # Auto-downloads via ultralytics
+YOLO_TRIGGER_MODEL = "yolo11n.pt"   # Auto-downloads via ultralytics
 
 # Trigger zone — normalized (0.0–1.0). Wide zone catches products at any position.
 TRIGGER_ROI_Y_BAND = (0.0, 1.0)

@@ -36,7 +36,6 @@ class InspectionWorker(threading.Thread):
         print("[System] Loading AI models — this may take a minute on first run...")
         self._ai = AIInspectionSystem(
             barcode_model_path=self.config.BARCODE_DETECTOR_MODEL,
-            ocr_model_path=self.config.DOTTED_OCR_MODEL,
             qwen_model_id=self.config.QWEN_MODEL_ID,
         )
 

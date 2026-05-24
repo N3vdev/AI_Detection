@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from PIL import Image
 from ultralytics import YOLO
-from src.ocr_model import CRNN
+from paddleocr import PaddleOCR
 
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
@@ -122,7 +122,6 @@ class AIInspectionSystem:
     def __init__(
         self,
         barcode_model_path='models/barcode_detector.pt',
-        ocr_model_path='models/dotted_ocr_retrained.pth',
         qwen_model_id='Qwen/Qwen2.5-VL-3B-Instruct',
     ):
         print("[System] Initializing AI Inspection Pipeline...")
@@ -181,17 +180,16 @@ class AIInspectionSystem:
         self.qwen_processor.image_processor.max_pixels = 640 * 28 * 28
         self.qwen_processor.image_processor.min_pixels = 4 * 28 * 28
 
-        # ── CRNN dotted/inkjet label reader ────────────────────────────────────
-        self.alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/-.: "
-        self.crnn = CRNN(32, 1, len(self.alphabet) + 1, 256)
-        self.crnn_ready = False
-        try:
-            self.crnn.load_state_dict(torch.load(ocr_model_path, map_location='cpu'))
-            self.crnn.eval()
-            self.crnn_ready = True
-            print("[System] Dotted label CRNN loaded.")
-        except Exception as e:
-            print(f"[System] Dotted CRNN not loaded ({e}).")
+        # ── PaddleOCR — dotted/inkjet label reader ────────────────────────────
+        print("[System] Loading PaddleOCR...")
+        self.ocr_reader = PaddleOCR(
+            use_angle_cls=True,
+            lang='en',
+            use_gpu=(self.device == 'cuda'),
+            show_log=False,
+        )
+        self.ocr_ready = True
+        print("[System] PaddleOCR loaded.")
 
         torch.set_num_threads(os.cpu_count() or 4)
         print("[System] Ready.\n")
@@ -261,34 +259,19 @@ class AIInspectionSystem:
             elif key == "batch":    result["batch_number"] = value
         return result
 
-    # ── Dotted label helpers ───────────────────────────────────────────────────
+    # ── PaddleOCR text reader ──────────────────────────────────────────────────
 
-    def _preprocess_dotted(self, img_bgr):
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-        enhanced = clahe.apply(gray)
-        denoised = cv2.fastNlMeansDenoising(enhanced, h=10)
-        thresh = cv2.adaptiveThreshold(
-            denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-        )
-        return cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
-
-    def _read_crnn(self, crop_bgr):
-        gray = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
-        gray = cv2.resize(gray, (128, 32))
-        t = torch.from_numpy(
-            (gray.astype(np.float32) / 255.0 - 0.5) / 0.5
-        ).unsqueeze(0).unsqueeze(0)
-        with torch.inference_mode():
-            preds = self.crnn(t)
-            _, idx = torch.max(preds, 2)
-            idx = idx.permute(1, 0).cpu().numpy()[0]
-        chars = [
-            self.alphabet[i - 1]
-            for j, i in enumerate(idx)
-            if i != 0 and (j == 0 or i != idx[j - 1])
-        ]
-        return "".join(chars)
+    def _read_paddleocr(self, img_bgr):
+        """Run PaddleOCR on a full product image. Returns all detected text joined."""
+        results = self.ocr_reader.ocr(img_bgr, cls=True)
+        texts = []
+        if results and results[0]:
+            for line in results[0]:
+                if line:
+                    text, conf = line[1]
+                    if conf > 0.3:
+                        texts.append(text)
+        return ' '.join(texts)
 
     # ── Barcode helpers ────────────────────────────────────────────────────────
 
@@ -446,15 +429,15 @@ class AIInspectionSystem:
                             return result
         print("[Phase 1] No barcode — moving to Phase 2.")
 
-        # ── Phase 2: CRNN dotted labels ────────────────────────────────────────
-        crnn_text_parts = []
-        if self.crnn_ready:
+        # ── Phase 2: EasyOCR — read all text from each image ──────────────────
+        ocr_text_parts = []
+        if self.ocr_ready:
             for _, img in loaded:
-                t = self._read_crnn(self._preprocess_dotted(img))
+                t = self._read_paddleocr(img)
                 if t.strip():
                     if not result["dotted_label_text"]:
                         result["dotted_label_text"] = t
-                    crnn_text_parts.append(t)
+                    ocr_text_parts.append(t)
 
         # ── Phase 3: Qwen2.5-VL ────────────────────────────────────────────────
         # Pick the 2 sharpest frames — more images = more tokens = slower.
@@ -477,9 +460,9 @@ class AIInspectionSystem:
         qwen_data = self._qwen_extract(pil_images)
         result.update({k: v for k, v in qwen_data.items() if v})
 
-        # ── Phase 4: Date regex on CRNN text (fills inkjet dates Qwen missed) ──
-        if crnn_text_parts:
-            combined = " ".join(crnn_text_parts)
+        # ── Phase 4: Date regex on EasyOCR text (fills inkjet dates Qwen missed) ──
+        if ocr_text_parts:
+            combined = " ".join(ocr_text_parts)
             for k, v in self._extract_dates(combined).items():
                 if not result.get(k):
                     result[k] = v
