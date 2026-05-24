@@ -350,11 +350,35 @@ class AIInspectionSystem:
                 pass
             return None
 
-        result = _try(crop)
-        if result:
-            return result
+        # 1. Color crop as-is
+        v = _try(crop)
+        if v: return v
+
         gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if len(crop.shape) == 3 else crop
-        return _try(cv2.resize(gray, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LINEAR))
+
+        # 2. 2× upscale — helps when barcode is small in the frame
+        v = _try(cv2.resize(gray, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LINEAR))
+        if v: return v
+
+        # 3. 3× upscale
+        v = _try(cv2.resize(gray, None, fx=3.0, fy=3.0, interpolation=cv2.INTER_LINEAR))
+        if v: return v
+
+        # 4. Sharpened — recovers slightly blurry barcodes
+        kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+        sharp = cv2.filter2D(gray, -1, kernel)
+        v = _try(cv2.resize(sharp, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LINEAR))
+        if v: return v
+
+        # 5. Adaptive threshold — handles curved surfaces / uneven lighting
+        thresh_a = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        v = _try(cv2.resize(thresh_a, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LINEAR))
+        if v: return v
+
+        # 6. Otsu threshold — handles low-contrast prints
+        _, thresh_o = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        return _try(cv2.resize(thresh_o, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LINEAR))
 
     def _padded_crop(self, img, xyxy, pad=0.15):
         h, w = img.shape[:2]
