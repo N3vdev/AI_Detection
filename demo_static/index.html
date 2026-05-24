@@ -15,12 +15,38 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 28px 16px 48px;
+      padding: 20px 16px 48px;
     }
 
-    .header { text-align: center; margin-bottom: 24px; }
-    .header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
-    .header p  { font-size: 0.82rem; color: #555; margin-top: 6px; }
+    /* ── Stats pills ── */
+    .stats-bar {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      max-width: 420px;
+      margin-bottom: 20px;
+    }
+    .stat-pill {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #131313;
+      border: 1px solid #222;
+      border-radius: 99px;
+      padding: 7px 12px;
+      overflow: hidden;
+    }
+    .stat-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .stat-info { display: flex; flex-direction: column; gap: 1px; }
+    .stat-label { font-size: 0.62rem; color: #444; text-transform: uppercase; letter-spacing: 0.07em; line-height: 1; }
+    .stat-value { font-size: 0.82rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+    .stat-spark { margin-left: auto; opacity: 0.8; flex-shrink: 0; }
 
     /* ── Photo strip ── */
     .strip-wrap {
@@ -245,9 +271,24 @@
 </head>
 <body>
 
-  <div class="header">
-    <h1>AI Product Inspector</h1>
-    <p>Add one or more photos of the same product</p>
+  <!-- CPU / GPU pills -->
+  <div class="stats-bar">
+    <div class="stat-pill" id="cpuPill">
+      <div class="stat-dot" id="cpuDot"></div>
+      <div class="stat-info">
+        <span class="stat-label">CPU</span>
+        <span class="stat-value" id="cpuVal">—</span>
+      </div>
+      <div class="stat-spark" id="cpuSpark"></div>
+    </div>
+    <div class="stat-pill" id="gpuPill">
+      <div class="stat-dot" id="gpuDot"></div>
+      <div class="stat-info">
+        <span class="stat-label">GPU</span>
+        <span class="stat-value" id="gpuVal">—</span>
+      </div>
+      <div class="stat-spark" id="gpuSpark"></div>
+    </div>
   </div>
 
   <!-- Empty state (shown when no photos) -->
@@ -438,6 +479,61 @@
     renderStrip();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+
+  // ── CPU / GPU stats ──────────────────────────────────────────────────────
+  const CPU_HIST = [], GPU_HIST = [];
+  const HIST_MAX = 30;   // 30 seconds of history
+
+  function sparkSVG(data, color) {
+    const W = 52, H = 22;
+    if (data.length < 2) return `<svg width="${W}" height="${H}"></svg>`;
+    const step = W / (HIST_MAX - 1);
+    // Pad left with zeros so graph always fills full width
+    const padded = Array(HIST_MAX - data.length).fill(0).concat(data);
+    const pts = padded.map((v, i) =>
+      `${(i * step).toFixed(1)},${(H - (v / 100) * H).toFixed(1)}`
+    ).join(' ');
+    return `<svg width="${W}" height="${H}" style="display:block;overflow:visible">
+      <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5"
+        stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  function pillColor(pct) {
+    if (pct >= 90) return '#ef4444';   // red
+    if (pct >= 70) return '#f59e0b';   // amber
+    return '#22c55e';                  // green
+  }
+  function gpuColor(pct) {
+    if (pct >= 95) return '#ef4444';
+    if (pct >= 80) return '#f59e0b';
+    return '#a855f7';                  // purple for GPU
+  }
+
+  function updateStats(cpu, gpu) {
+    if (CPU_HIST.length >= HIST_MAX) CPU_HIST.shift();
+    if (GPU_HIST.length >= HIST_MAX) GPU_HIST.shift();
+    CPU_HIST.push(cpu); GPU_HIST.push(gpu);
+
+    const cc = pillColor(cpu), gc = gpuColor(gpu);
+    document.getElementById('cpuVal').textContent  = cpu + '%';
+    document.getElementById('gpuVal').textContent  = gpu + '%';
+    document.getElementById('cpuDot').style.background = cc;
+    document.getElementById('gpuDot').style.background = gc;
+    document.getElementById('cpuVal').style.color  = cc;
+    document.getElementById('gpuVal').style.color  = gc;
+    document.getElementById('cpuSpark').innerHTML  = sparkSVG(CPU_HIST, cc);
+    document.getElementById('gpuSpark').innerHTML  = sparkSVG(GPU_HIST, gc);
+  }
+
+  async function pollStats() {
+    try {
+      const r = await fetch('/stats');
+      if (r.ok) { const d = await r.json(); updateStats(d.cpu, d.gpu); }
+    } catch (_) {}
+    setTimeout(pollStats, 1000);
+  }
+  pollStats();
 </script>
 
 </body>

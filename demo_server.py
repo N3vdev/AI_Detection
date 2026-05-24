@@ -2,7 +2,7 @@
 AI Product Inspector — Web Demo Server
 =======================================
 Install deps (one-time, separate from main requirements):
-    pip install fastapi "uvicorn[standard]" python-multipart
+    pip install fastapi "uvicorn[standard]" python-multipart psutil pynvml
 
 Run server:
     cd d:\\Projects\\AI_Detection
@@ -22,8 +22,21 @@ import tempfile
 from contextlib import asynccontextmanager
 from typing import List
 
+import psutil
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
+
+# Seed CPU percent so first /stats call returns a real value not 0
+psutil.cpu_percent(interval=None)
+
+# GPU monitoring via pynvml (comes with CUDA drivers — no extra install needed)
+_nvml_handle = None
+try:
+    import pynvml
+    pynvml.nvmlInit()
+    _nvml_handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+except Exception:
+    pass
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -50,6 +63,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Product Inspector", lifespan=lifespan)
+
+
+@app.get("/stats")
+async def stats():
+    cpu = round(psutil.cpu_percent(interval=None))
+    gpu = 0
+    if _nvml_handle is not None:
+        try:
+            util = pynvml.nvmlDeviceGetUtilizationRates(_nvml_handle)
+            gpu = util.gpu
+        except Exception:
+            pass
+    return {"cpu": cpu, "gpu": gpu}
 
 
 @app.get("/", response_class=HTMLResponse)
