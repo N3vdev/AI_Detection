@@ -1,9 +1,9 @@
-INFO:     103.50.23.165:0 - "POST /inspect HTTP/1.1" 200 OK
 [Orient] Checking orientation on 2 image(s)...
+[Orient] Rotated 180° (edge heuristic)
+[Orient] Rotated 180° (edge heuristic)
 [Phase 1] Scanning 2 image(s) for barcode...
 [Phase 1] No barcode — moving to Phase 2.
-Resized image size (8064x6048) exceeds max_side_limit of 4000. Resizing to fit within limit.
-INFO:     103.50.23.165:0 - "POST /inspect HTTP/1.1" 500 Internal Server Error
+INFO:     103.50.23.174:0 - "POST /inspect HTTP/1.1" 500 Internal Server Error
 ERROR:    Exception in ASGI application
 Traceback (most recent call last):
   File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 409, in run_asgi
@@ -56,7 +56,7 @@ Traceback (most recent call last):
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "D:\Codes\AI Detection Model\demo_server.py", line 77, in inspect
     result = _ai.inspect_product(paths)
-  File "D:\Codes\AI Detection Model\src\detect.py", line 455, in inspect_product
+  File "D:\Codes\AI Detection Model\src\detect.py", line 472, in inspect_product
     t = self._read_paddleocr(img_up)
   File "D:\Codes\AI Detection Model\src\detect.py", line 260, in _read_paddleocr
     result = self.ocr_reader.ocr(img_bgr)
@@ -90,4 +90,4 @@ Traceback (most recent call last):
   File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\runners\paddle_static\runner.py", line 265, in __call__
     self.predictor.run()
     ~~~~~~~~~~~~~~~~~~^^
-NotImplementedError: (Unimplemented) ConvertPirAttribute2Runtime
+NotImplementedError: (Unimplemented) ConvertPirAttribute2RuntimeAttribute not support [pir::ArrayAttribute<pir::DoubleAttribute>]  (at ..\paddle\fluid\framework\new_executor\instruction\onednn\onednn_instruction.cc:118)
