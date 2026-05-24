@@ -6,6 +6,10 @@ import torch
 import numpy as np
 from PIL import Image
 from ultralytics import YOLO
+
+# Disable Intel oneDNN before PaddlePaddle loads — avoids ConvertPirAttribute crash on Windows
+os.environ['FLAGS_use_mkldnn'] = '0'
+os.environ['PADDLE_DISABLE_ONEDNN'] = '1'
 from paddleocr import PaddleOCR
 
 try:
