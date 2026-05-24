@@ -1,327 +1,59 @@
-i am creating a AI Detection tool that will monitor live feed from a conveyer belt where it has 3 cameras which will have live capture of the products passing through
-
-but now the main flow is 
-phase 1 barcode check if the product has barcode then extract the barcode and if it doesnt it moves to phase 2
-where it will identify the product name, company name, item expiry, manufacturing dates etc (now for these the dated labels are mostly dotted labels where most OCR Fail to extract, so i want a AI Model that can detect it properly with 100% accuracy, currently the barcode is working but the rest of the features arent working how do i fix it? also i'll have one file where i can test images directly so that i dont need to have a live camera for testing purpose
-
-i want to create a model that will detect everything properly like a proper AI extraction model, that detects everything quickly, use a pretrained model for YOLO or anything, i want it to work 100%
-
-"
-
-[Conveyor] Waiting for models to load...
-
-I2026-05-23 22:39:02.679600 (15872) [INFO] [VCAMDS] python.exe
-E2026-05-23 22:39:02.680348 (15872)  [ERR] [VCAMDS] Failed to open NBX hive
-I2026-05-23 22:39:02.681463 (15872) [INFO] [VCAMDS] Creating WndMsg Listener Window
-I2026-05-23 22:39:02.684465 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:02.684465 (15872) [INFO] [VCAMDS] Performing initializing sequence
-I2026-05-23 22:39:02.684465 (15872) [INFO] [VCAMDS] Entered Shared Memory Consumer Initialize
-I2026-05-23 22:39:02.685464 (15872) [INFO] [VCAMDS] Video data consumption app tracker current process id: 16196
-I2026-05-23 22:39:02.685464 (15872) [INFO] [VCAMDS] NvMxnCltShmConsumer Init kSuccess
-I2026-05-23 22:39:02.685464 (15872) [INFO] [VCAMDS] Video data consumption app tracker updating num DLL loaded: 1
-W2026-05-23 22:39:03.693683 (15872) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:03.693683 (15872)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps DLL loaded
-I2026-05-23 22:39:03.693683 (15872) [INFO] [VCAMDS] Initializing streaming output
-I2026-05-23 22:39:03.693683 (15872) [INFO] [VCAMDS] Querying stream output successful. Params: 1280x720@30/1
-I2026-05-23 22:39:03.693683 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:03.693683 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:03.693683 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:03.693683 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.014261 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.014261 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.014261 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.014261 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015259 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015259 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015259 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015259 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015259 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015259 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015259 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015259 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015259 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.015765 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.016772 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.017788 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.017788 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.017788 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.017788 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.017788 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:04.017788 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:04.017788 (18440) [INFO] [VCAMDS] On Thread Create
-I2026-05-23 22:39:04.017788 (18440) [INFO] [VCAMDS] Video data consumption app tracker updating num apps streaming active: 1
-[Conveyor] Running — pass products under Camera-0 to inspect.
-[Conveyor] Press Ctrl+C to stop early.
-
-W2026-05-23 22:39:05.031811 (18440) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:05.031811 (18440)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps streaming active
-I2026-05-23 22:39:05.031811 (18440) [INFO] [VCAMDS] Fill buffer started
-I2026-05-23 22:39:05.031811 (18440) [INFO] [VCAMDS] Initializing image blit data
-I2026-05-23 22:39:05.036324 (18440) [INFO] [VCAMDS] jpeg exif orientation property not found
-I2026-05-23 22:39:05.037323 (18440) [INFO] [VCAMDS] image size acquired successfully. src: 1920x1080
-I2026-05-23 22:39:05.037323 (18440) [INFO] [VCAMDS] image scaler initialized successfully. dst: 1280x720
-I2026-05-23 22:39:05.037323 (18440) [INFO] [VCAMDS] Flip/Rotation Options: 16
-I2026-05-23 22:39:05.037323 (18440) [INFO] [VCAMDS] flip rotator initialized successfully
-I2026-05-23 22:39:05.067375 (18440) [INFO] [VCAMDS] Successfully copied image pixels
-I2026-05-23 22:39:05.067375 (18440) [INFO] [VCAMDS] FB delta time: 0 | Final time: 33333
-I2026-05-23 22:39:05.108903 (18440) [INFO] [VCAMDS] Verify core stream readiness before the first frame (sh)
-I2026-05-23 22:39:05.108903 (18440) [INFO] [VCAMDS] On Thread Destroy
-I2026-05-23 22:39:05.108903 (18440) [INFO] [VCAMDS] Video data consumption app tracker updating num apps streaming active: 0
-[Worker] Loading AI models...
+D:\Codes\AI Detection Model>python run_conveyor.py
+[Trigger] Loading YOLOv8n on CPU...
+[Trigger] Ready.
+[System] Loading AI models, please wait...
+[System] Loading AI models — this may take a minute on first run...
 [System] Initializing AI Inspection Pipeline...
 [System] Device: CUDA
 [System] Barcode detector loaded.
 [System] Loading Qwen/Qwen2.5-VL-3B-Instruct...
-W2026-05-23 22:39:06.118991 (18440) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:06.118991 (18440)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps streaming active
-I2026-05-23 22:39:06.120044 (15872) [INFO] [VCAMDS] Destroying parent object
-I2026-05-23 22:39:06.120044 (15872) [INFO] [VCAMDS] Destroying WndMsg Listener Window
-I2026-05-23 22:39:06.121048 (15872) [INFO] [VCAMDS] Destroyed window
-I2026-05-23 22:39:06.121048 (15872) [INFO] [VCAMDS] Unregistered window class
-I2026-05-23 22:39:06.121048 (15872) [INFO] [VCAMDS] Video data consumption app tracker updating num DLL loaded: 0
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-W2026-05-23 22:39:07.131829 (15872) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:07.131829 (15872)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps DLL loaded
-E2026-05-23 22:39:07.167596 (15872)  [ERR] [VCAMDS] Failed to open NBX hive
-I2026-05-23 22:39:07.167596 (15872) [INFO] [VCAMDS] Creating WndMsg Listener Window
-I2026-05-23 22:39:07.171625 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:07.171625 (15872) [INFO] [VCAMDS] Performing initializing sequence
-I2026-05-23 22:39:07.171625 (15872) [INFO] [VCAMDS] Entered Shared Memory Consumer Initialize
-I2026-05-23 22:39:07.172627 (15872) [INFO] [VCAMDS] Video data consumption app tracker current process id: 16196
-I2026-05-23 22:39:07.172627 (15872) [INFO] [VCAMDS] NvMxnCltShmConsumer Init kSuccess
-I2026-05-23 22:39:07.172627 (15872) [INFO] [VCAMDS] Video data consumption app tracker updating num DLL loaded: 1
-W2026-05-23 22:39:08.187808 (15872) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:08.187808 (15872)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps DLL loaded
-I2026-05-23 22:39:08.187808 (15872) [INFO] [VCAMDS] Initializing streaming output
-I2026-05-23 22:39:08.187808 (15872) [INFO] [VCAMDS] Querying stream output successful. Params: 1280x720@30/1
-I2026-05-23 22:39:08.187808 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.187808 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.187808 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.188812 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.443874 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.444875 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:08.445873 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:08.445873 (34460) [INFO] [VCAMDS] On Thread Create
-I2026-05-23 22:39:08.445873 (34460) [INFO] [VCAMDS] Video data consumption app tracker updating num apps streaming active: 1
-W2026-05-23 22:39:09.449090 (34460) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:09.449090 (34460)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps streaming active
-I2026-05-23 22:39:09.449595 (34460) [INFO] [VCAMDS] Fill buffer started
-I2026-05-23 22:39:09.449595 (34460) [INFO] [VCAMDS] Initializing image blit data
-I2026-05-23 22:39:09.450600 (34460) [INFO] [VCAMDS] jpeg exif orientation property not found
-I2026-05-23 22:39:09.450600 (34460) [INFO] [VCAMDS] image size acquired successfully. src: 1920x1080
-I2026-05-23 22:39:09.450600 (34460) [INFO] [VCAMDS] image scaler initialized successfully. dst: 1280x720
-I2026-05-23 22:39:09.450600 (34460) [INFO] [VCAMDS] Flip/Rotation Options: 16
-I2026-05-23 22:39:09.450600 (34460) [INFO] [VCAMDS] flip rotator initialized successfully
-I2026-05-23 22:39:09.486416 (34460) [INFO] [VCAMDS] Successfully copied image pixels
-I2026-05-23 22:39:09.520062 (34460) [INFO] [VCAMDS] Verify core stream readiness before the first frame (sh)
-I2026-05-23 22:39:09.587464 (34460) [INFO] [VCAMDS] On Thread Destroy
-I2026-05-23 22:39:09.587464 (34460) [INFO] [VCAMDS] Video data consumption app tracker updating num apps streaming active: 0
-W2026-05-23 22:39:10.597402 (34460) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:10.597402 (34460)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps streaming active
-I2026-05-23 22:39:10.598912 (15872) [INFO] [VCAMDS] Destroying parent object
-I2026-05-23 22:39:10.598912 (15872) [INFO] [VCAMDS] Destroying WndMsg Listener Window
-I2026-05-23 22:39:10.599917 (15872) [INFO] [VCAMDS] Destroyed window
-I2026-05-23 22:39:10.599917 (15872) [INFO] [VCAMDS] Unregistered window class
-I2026-05-23 22:39:10.599917 (15872) [INFO] [VCAMDS] Video data consumption app tracker updating num DLL loaded: 0
 [System] Free VRAM: 6.9 GB
 [System] 4-bit quantization enabled (low VRAM mode).
-W2026-05-23 22:39:11.606139 (15872) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:11.606139 (15872)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps DLL loaded
-E2026-05-23 22:39:11.645781 (15872)  [ERR] [VCAMDS] Failed to open NBX hive
-I2026-05-23 22:39:11.645781 (15872) [INFO] [VCAMDS] Creating WndMsg Listener Window
-I2026-05-23 22:39:11.649806 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:11.649806 (15872) [INFO] [VCAMDS] Performing initializing sequence
-I2026-05-23 22:39:11.649806 (15872) [INFO] [VCAMDS] Entered Shared Memory Consumer Initialize
-I2026-05-23 22:39:11.650324 (15872) [INFO] [VCAMDS] Video data consumption app tracker current process id: 16196
-I2026-05-23 22:39:11.650324 (15872) [INFO] [VCAMDS] NvMxnCltShmConsumer Init kSuccess
-I2026-05-23 22:39:11.650324 (15872) [INFO] [VCAMDS] Video data consumption app tracker updating num DLL loaded: 1
-W0523 22:39:11.716000 16196 site-packages\torch\utils\flop_counter.py:29] triton not found; flop counting will not work for triton kernels
-W2026-05-23 22:39:12.662869 (15872) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:12.662869 (15872)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps DLL loaded
-I2026-05-23 22:39:12.662869 (15872) [INFO] [VCAMDS] Initializing streaming output
-I2026-05-23 22:39:12.662869 (15872) [INFO] [VCAMDS] Querying stream output successful. Params: 1280x720@30/1
-I2026-05-23 22:39:12.662869 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.662869 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.662869 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.662869 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.932682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.933684 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Requested to perform initializing sequence
-I2026-05-23 22:39:12.934682 (15872) [INFO] [VCAMDS] Already initialized
-I2026-05-23 22:39:12.936188 (35136) [INFO] [VCAMDS] On Thread Create
-I2026-05-23 22:39:12.936188 (35136) [INFO] [VCAMDS] Video data consumption app tracker updating num apps streaming active: 1
-Fetching 2 files: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:00<00:00, 24314.81it/s]
-Download complete: : 0.00B [00:00, ?B/s]                                                                                                           | 0/2 [00:00<?, ?it/s]
-Loading weights:   0%|▏                                                                                                                  | 1/824 [00:00<03:15,  4.20it/s]W2026-05-23 22:39:13.939029 (35136) [WARN] [VCAMDS] App Tracker Exception: Interprocess mutex timeout when locking. Possible deadlock: owner died without unlocking?
-E2026-05-23 22:39:13.939029 (35136)  [ERR] [VCAMDS] NvMxnCltShmConsumer Failed to update num apps streaming active
-I2026-05-23 22:39:13.939029 (35136) [INFO] [VCAMDS] Fill buffer started
-I2026-05-23 22:39:13.939029 (35136) [INFO] [VCAMDS] Initializing image blit data
-[Camera-1] Started.
-I2026-05-23 22:39:13.940801 (35136) [INFO] [VCAMDS] jpeg exif orientation property not found
-I2026-05-23 22:39:13.940801 (35136) [INFO] [VCAMDS] image size acquired successfully. src: 1920x1080
-I2026-05-23 22:39:13.941103 (35136) [INFO] [VCAMDS] image scaler initialized successfully. dst: 1280x720
-I2026-05-23 22:39:13.941103 (35136) [INFO] [VCAMDS] Flip/Rotation Options: 16
-I2026-05-23 22:39:13.941103 (35136) [INFO] [VCAMDS] flip rotator initialized successfully
-I2026-05-23 22:39:13.980166 (35136) [INFO] [VCAMDS] Successfully copied image pixels
-C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\bitsandbytes\backends\cuda\ops.py:213: FutureWarning: _check_is_size will be removed in a future PyTorch release along with guard_size_oblivious.     Use _check(i >= 0) instead.
+W0524 12:13:05.120000 15960 site-packages\torch\utils\flop_counter.py:29] triton not found; flop counting will not work for triton kernels
+Fetching 2 files: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:00<00:00, 43018.50it/s]
+Download complete: : 0.00B [00:00, ?B/s]                                                                                                                 | 0/2 [00:00<?, ?it/s]
+Loading weights:   0%|▏                                                                                                                        | 1/824 [00:00<02:29,  5.49it/s]C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\bitsandbytes\backends\cuda\ops.py:213: FutureWarning: _check_is_size will be removed in a future PyTorch release along with guard_size_oblivious.     Use _check(i >= 0) instead.
   torch._check_is_size(blocksize)
-I2026-05-23 22:39:14.014796 (35136) [INFO] [VCAMDS] Verify core stream readiness before the first frame (sh)
-Loading weights:   2%|██▏                                                                                                               | 16/824 [00:00<00:17, 46.83it/s][Conveyor] Waiting for inspection queue to drain...
-[Conveyor] Shutdown complete.
+Loading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 824/824 [00:02<00:00, 281.97it/s]
+[System] Qwen/Qwen2.5-VL-3B-Instruct loaded.
+[System] Loading PaddleOCR...
+Exception in thread InspectionWorker:
 Traceback (most recent call last):
-  File "D:\Codes\AI Detection Model\run_conveyor.py", line 38, in <module>
-    main()
-    ~~~~^^
-  File "D:\Codes\AI Detection Model\run_conveyor.py", line 32, in main
-    system.run_session(max_products=args.max)
-    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\Codes\AI Detection Model\live\conveyor_main.py", line 112, in run_session
-    cv2.imshow("Conveyor Inspection", preview)
-    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\utils\patches.py", line 153, in imshow
-    _imshow(winname.encode("unicode_escape").decode(), mat)
-    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-cv2.error: OpenCV(4.13.0) D:\a\opencv-python\opencv-python\opencv\modules\highgui\src\window.cpp:1301: error: (-2:Unspecified error) The function is not implemented. Rebuild the library with Windows, GTK+ 2.x or Cocoa support. If you are on Ubuntu or Debian, install libgtk2.0-dev and pkg-config, then re-run cmake or configure script in function 'cvShowImage'
-
-I2026-05-23 22:39:14.251180 (35136) [INFO] [VCAMDS] On Thread Destroy
-I2026-05-23 22:39:14.251180 (35136) [INFO] [VCAMDS] Video data consumption app tracker updating num apps streaming active: 0
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1041, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "D:\Codes\AI Detection Model\live\inspection_worker.py", line 43, in run
+    self._load_models()
+    ~~~~~~~~~~~~~~~~~^^
+  File "D:\Codes\AI Detection Model\live\inspection_worker.py", line 37, in _load_models
+    self._ai = AIInspectionSystem(
+               ~~~~~~~~~~~~~~~~~~^
+        barcode_model_path=self.config.BARCODE_DETECTOR_MODEL,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        qwen_model_id=self.config.QWEN_MODEL_ID,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "D:\Codes\AI Detection Model\src\detect.py", line 185, in __init__
+    self.ocr_reader = PaddleOCR(
+                      ~~~~~~~~~^
+        use_angle_cls=True,
+        ^^^^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        show_log=False,
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\ocr.py", line 163, in __init__
+    super().__init__(**base_params)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\base.py", line 63, in __init__
+    self._common_args = parse_common_args(
+                        ~~~~~~~~~~~~~~~~~^
+        common_args, default_enable_hpi=_DEFAULT_ENABLE_HPI
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_common_args.py", line 53, in parse_common_args
+    raise ValueError(f"Unknown argument: {name}")
+ValueError: Unknown argument: show_log

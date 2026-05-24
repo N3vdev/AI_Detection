@@ -7,7 +7,7 @@
 #                          "http://192.168.1.6:8080/video",
 #                          "http://192.168.1.7:8080/video"]
 #   USB webcam          : [0]  or  [0, 1, 2]
-CAMERA_INDICES = ["http://192.168.1.5:8080/video"]   # ← replace with your phone's IP
+CAMERA_INDICES = ["http://192.168.0.199:8080/video"]   # ← replace with your phone's IP
 CAMERA_RESOLUTION = (1280, 720)
 CAMERA_FPS = 30
 
