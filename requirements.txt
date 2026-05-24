@@ -32,8 +32,9 @@ ultralytics
 pyzbar
 
 # ── OCR ───────────────────────────────────────────────────────────────────────
-# EasyOCR — PyTorch-based, no separate framework needed, works on Python 3.13
-easyocr
+# PaddleOCR — high-accuracy OCR with text detection + recognition
+paddlepaddle
+paddleocr
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 pyyaml

@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from PIL import Image
 from ultralytics import YOLO
-import easyocr
+from paddleocr import PaddleOCR
 
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
@@ -180,13 +180,15 @@ class AIInspectionSystem:
         self.qwen_processor.image_processor.max_pixels = 640 * 28 * 28
         self.qwen_processor.image_processor.min_pixels = 4 * 28 * 28
 
-        # ── EasyOCR — dotted/inkjet label reader (PyTorch-based, no extra framework)
-        print("[System] Loading EasyOCR...")
-        self.ocr_reader = easyocr.Reader(
-            ['en'], gpu=(self.device == 'cuda'), verbose=False
+        # ── PaddleOCR — inkjet/dotted/printed label reader
+        print("[System] Loading PaddleOCR...")
+        self.ocr_reader = PaddleOCR(
+            use_angle_cls=True,
+            lang='en',
+            use_gpu=False,   # CPU — avoids Windows CUDA DLL conflicts; fast enough for OCR
         )
         self.ocr_ready = True
-        print("[System] EasyOCR loaded.")
+        print("[System] PaddleOCR loaded.")
 
         torch.set_num_threads(os.cpu_count() or 4)
         print("[System] Ready.\n")
@@ -203,9 +205,6 @@ class AIInspectionSystem:
         return pil_img
 
     def _qwen_extract(self, pil_images):
-        # Pre-shrink so the processor receives small images — saves tokenisation time
-        pil_images = [self._shrink_pil(img) for img in pil_images]
-
         content = []
         for img in pil_images:
             content.append({"type": "image", "image": img})
@@ -259,8 +258,16 @@ class AIInspectionSystem:
     # ── EasyOCR text reader ────────────────────────────────────────────────────
 
     def _read_paddleocr(self, img_bgr):
-        results = self.ocr_reader.readtext(img_bgr, detail=1, paragraph=False)
-        return ' '.join(text for (_, text, conf) in results if conf > 0.3)
+        result = self.ocr_reader.ocr(img_bgr, cls=True)
+        if not result or result[0] is None:
+            return ''
+        texts = []
+        for line in result[0]:
+            if line and len(line) >= 2:
+                text, conf = line[1][0], line[1][1]
+                if conf > 0.25:
+                    texts.append(text)
+        return ' '.join(texts)
 
     # ── Barcode helpers ────────────────────────────────────────────────────────
 
@@ -405,24 +412,48 @@ class AIInspectionSystem:
 
         # ── Phase 1: Barcode ───────────────────────────────────────────────────
         print(f"[Phase 1] Scanning {len(loaded)} image(s) for barcode...")
+
+        # Pass 1 — direct decode on full image (no YOLO needed).
+        # pyzbar/cv2 scan the whole image natively; _decode_crop also retries on
+        # 2× grayscale internally, so this handles zoomed-out small barcodes too.
+        # When the barcode is clear, YOLO is skipped entirely → faster.
+        for path, img in loaded:
+            value = self._decode_crop(img)
+            if value:
+                result["barcode"] = value
+                result["status"] = "Complete (Barcode)"
+                print(f"[Phase 1] Barcode (direct): {value}")
+                return result
+
+        # Pass 2 — YOLO region proposal → padded crop → decode.
+        # Helps with partially occluded barcodes where isolating the region improves decoding.
         for path, img in loaded:
             if self.barcode_detector:
-                for det in self.barcode_detector(img, verbose=False):  # use oriented array
+                for det in self.barcode_detector(img, verbose=False):
                     for box in det.boxes:
                         xyxy = box.xyxy[0].cpu().numpy().astype(int)
                         value = self._decode_crop(self._padded_crop(img, xyxy))
                         if value:
                             result["barcode"] = value
                             result["status"] = "Complete (Barcode)"
-                            print(f"[Phase 1] Barcode: {value}")
+                            print(f"[Phase 1] Barcode (YOLO crop): {value}")
                             return result
+
         print("[Phase 1] No barcode — moving to Phase 2.")
 
         # ── Phase 2: EasyOCR — read all text from each image ──────────────────
+        # 2× upscale + CLAHE contrast boost before OCR: critical for small/zoomed-out
+        # labels where text may be only a few pixels tall in the original frame.
+        _clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         ocr_text_parts = []
         if self.ocr_ready:
             for _, img in loaded:
-                t = self._read_paddleocr(img)
+                h, w = img.shape[:2]
+                img_up = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                lab = cv2.cvtColor(img_up, cv2.COLOR_BGR2LAB)
+                lab[..., 0] = _clahe.apply(lab[..., 0])
+                img_up = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+                t = self._read_paddleocr(img_up)
                 if t.strip():
                     if not result["dotted_label_text"]:
                         result["dotted_label_text"] = t
