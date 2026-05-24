@@ -413,11 +413,17 @@ class AIInspectionSystem:
         print(f"[Phase 1] Scanning {len(loaded)} image(s) for barcode...")
 
         # Pass 1 — direct decode on full image (no YOLO needed).
-        # pyzbar/cv2 scan the whole image natively; _decode_crop also retries on
-        # 2× grayscale internally, so this handles zoomed-out small barcodes too.
-        # When the barcode is clear, YOLO is skipped entirely → faster.
+        # Cap to 1920px so pyzbar stays fast on high-res phone photos;
+        # _decode_crop also retries on 2× grayscale internally.
         for path, img in loaded:
-            value = self._decode_crop(img)
+            h, w = img.shape[:2]
+            long_side = max(h, w)
+            if long_side > 1920:
+                s = 1920 / long_side
+                img_scan = cv2.resize(img, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
+            else:
+                img_scan = img
+            value = self._decode_crop(img_scan)
             if value:
                 result["barcode"] = value
                 result["status"] = "Complete (Barcode)"
@@ -440,15 +446,26 @@ class AIInspectionSystem:
 
         print("[Phase 1] No barcode — moving to Phase 2.")
 
-        # ── Phase 2: EasyOCR — read all text from each image ──────────────────
-        # 2× upscale + CLAHE contrast boost before OCR: critical for small/zoomed-out
-        # labels where text may be only a few pixels tall in the original frame.
+        # ── Phase 2: PaddleOCR — read all text from each image ───────────────
+        # Normalise to ~1920px max side before OCR:
+        #   • small webcam frames (≤960px) → upscale 2× so text is ≥20px tall
+        #   • large phone photos (>1920px) → downscale; text is already large
+        #   • mid-range images → keep as-is
+        # CLAHE boosts contrast on low-contrast inkjet/dotted labels.
+        _OCR_TARGET = 1920
         _clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         ocr_text_parts = []
         if self.ocr_ready:
             for _, img in loaded:
                 h, w = img.shape[:2]
-                img_up = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                long_side = max(h, w)
+                if long_side > _OCR_TARGET:
+                    s = _OCR_TARGET / long_side
+                    img_up = cv2.resize(img, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
+                elif long_side < _OCR_TARGET // 2:
+                    img_up = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+                else:
+                    img_up = img
                 lab = cv2.cvtColor(img_up, cv2.COLOR_BGR2LAB)
                 lab[..., 0] = _clahe.apply(lab[..., 0])
                 img_up = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
