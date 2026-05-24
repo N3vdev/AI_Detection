@@ -4,6 +4,7 @@ import os
 import time
 import json
 import datetime
+import threading
 import torch
 import numpy as np
 from PIL import Image
@@ -394,6 +395,37 @@ class AIInspectionSystem:
         x1, y1, x2, y2 = xyxy
         pw, ph = int((x2 - x1) * pad), int((y2 - y1) * pad)
         return img[max(0, y1 - ph):min(h, y2 + ph), max(0, x1 - pw):min(w, x2 + pw)]
+
+    def quick_barcode_scan(self, frames):
+        """Scan all camera frames for a barcode IN PARALLEL — no disk I/O, no YOLO.
+        Call this on raw numpy frames before saving to disk or running the full pipeline.
+        Returns the decoded barcode string, or None if not found.
+
+        With 4 cameras all threads run simultaneously; typical wall time ~15-30ms.
+        """
+        _SCAN_MAX = 1920
+        found = threading.Event()
+        result = [None]
+
+        def _scan(frame):
+            if frame is None or found.is_set():
+                return
+            h, w = frame.shape[:2]
+            if max(h, w) > _SCAN_MAX:
+                s = _SCAN_MAX / max(h, w)
+                frame = cv2.resize(frame, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
+            v = self._decode_crop(frame)
+            if v and not found.is_set():
+                result[0] = v
+                found.set()
+
+        threads = [threading.Thread(target=_scan, args=(f,), daemon=True)
+                   for f in frames if f is not None]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        return result[0]
 
     # ── Date / batch extraction ────────────────────────────────────────────────
 

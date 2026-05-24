@@ -73,19 +73,46 @@ class InspectionWorker(threading.Thread):
         t0 = time.time()
         print(f"\n[Worker] Product #{task.seq_number} ({task.product_id})")
 
+        valid_frames = [(i, f) for i, f in enumerate(task.frames) if f is not None]
+        if not valid_frames:
+            print(f"[Worker] No frames for product {task.product_id} — skipping.")
+            return
+
+        # ── Fast-path: try barcode on all cameras in parallel before any disk I/O ──
+        # pyzbar on 4 frames simultaneously ~15-30ms. If found, skip OCR+Qwen entirely.
+        barcode = self._ai.quick_barcode_scan([f for _, f in valid_frames])
+        if barcode:
+            processing_ms = int((time.time() - t0) * 1000)
+            print(f"[Worker] #{task.seq_number} BARCODE (fast): {barcode} ({processing_ms}ms)")
+            snapshot_dir = os.path.join(self.config.SNAPSHOT_DIR, f"product_{task.product_id}")
+            os.makedirs(snapshot_dir, exist_ok=True)
+            for i, frame in valid_frames:
+                cv2.imwrite(os.path.join(snapshot_dir, f"cam{i}.jpg"), frame,
+                            [cv2.IMWRITE_JPEG_QUALITY, self.config.SNAPSHOT_JPEG_QUALITY])
+            self.result_writer.write({
+                "product_id":    task.product_id,
+                "session_id":    task.session_id,
+                "seq_number":    task.seq_number,
+                "trigger_time":  _iso(task.trigger_ts),
+                "processing_ms": processing_ms,
+                "barcode":       barcode,
+                "status":        "Complete (Barcode)",
+                "snapshot_cam0": _snap(snapshot_dir, 0, task.frames),
+                "snapshot_cam1": _snap(snapshot_dir, 1, task.frames),
+                "snapshot_cam2": _snap(snapshot_dir, 2, task.frames),
+                "snapshot_cam3": _snap(snapshot_dir, 3, task.frames),
+            })
+            return
+
+        # ── Full pipeline: save frames to disk then run OCR + Qwen ────────────────
         snapshot_dir = os.path.join(self.config.SNAPSHOT_DIR, f"product_{task.product_id}")
         os.makedirs(snapshot_dir, exist_ok=True)
 
         saved_paths = []
-        for i, frame in enumerate(task.frames):
-            if frame is not None:
-                path = os.path.join(snapshot_dir, f"cam{i}.jpg")
-                cv2.imwrite(path, frame, [cv2.IMWRITE_JPEG_QUALITY, self.config.SNAPSHOT_JPEG_QUALITY])
-                saved_paths.append(path)
-
-        if not saved_paths:
-            print(f"[Worker] No frames for product {task.product_id} — skipping.")
-            return
+        for i, frame in valid_frames:
+            path = os.path.join(snapshot_dir, f"cam{i}.jpg")
+            cv2.imwrite(path, frame, [cv2.IMWRITE_JPEG_QUALITY, self.config.SNAPSHOT_JPEG_QUALITY])
+            saved_paths.append(path)
 
         result = self._ai.inspect_product(saved_paths)
 
@@ -99,6 +126,7 @@ class InspectionWorker(threading.Thread):
             "snapshot_cam0": _snap(snapshot_dir, 0, task.frames),
             "snapshot_cam1": _snap(snapshot_dir, 1, task.frames),
             "snapshot_cam2": _snap(snapshot_dir, 2, task.frames),
+            "snapshot_cam3": _snap(snapshot_dir, 3, task.frames),
         })
 
         self.result_writer.write(result)
