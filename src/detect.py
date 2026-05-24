@@ -2,6 +2,8 @@ import cv2
 import re
 import os
 import time
+import json
+import datetime
 import torch
 import numpy as np
 from PIL import Image
@@ -107,15 +109,21 @@ _BATCH_PATTERN = re.compile(
 
 _PROMPT = (
     "You are a product inspection AI on a factory conveyor belt. "
-    "You are given one or more images of the SAME product from different angles "
-    "(front, back, side). Look at ALL images together and extract:\n"
-    "Brand: [exact brand or company name on the product]\n"
-    "Product: [full product name and variant]\n"
+    "You are given one or more images of the SAME physical product from different angles. "
+    "Carefully examine ALL images and extract the following. "
+    "Pay special attention to small inkjet-printed or dot-matrix text near edges — "
+    "these are typically the manufacture/packed/expiry dates and may appear faint or dotted.\n\n"
+    "Brand: [exact brand or company name printed on the product]\n"
+    "Product: [full product name including variant, flavour, or size]\n"
     "Category: [Food / Drink / Snack / Skincare / Haircare / Medicine / Household]\n"
-    "Expiry: [any expiry/best-before/use-by/sell-by/consume-by/BB/BBD date, else NONE]\n"
-    "MFG: [any manufacturing/manufactured-on/packed-on/packing-date/production-date/made-on/DOM date, else NONE]\n"
-    "Batch: [batch or lot number, else NONE]\n"
-    "Reply using exactly those field names, one per line."
+    "Expiry: [date after EXP / Expiry / Best Before / Use By / BB / BBD / Consume By — any format including dd/mm/yy, dd/mmm/yyyy, mm/yyyy — else NONE]\n"
+    "MFG: [date after MFG / MFD / Mfg Date / Manufactured / Packed On / PKD / Packing Date / Production Date / Made On / DOM — else NONE]\n"
+    "Batch: [alphanumeric code after Batch No / Lot No — else NONE]\n\n"
+    "Rules:\n"
+    "- Output ONLY the six fields above, one per line, no extra text.\n"
+    "- If a date appears in multiple formats, output the most complete one.\n"
+    "- Never confuse MFG and Expiry — Expiry is always the later date.\n"
+    "- If unsure, output NONE rather than guessing."
 )
 
 
@@ -188,6 +196,13 @@ class AIInspectionSystem:
         print("[System] EasyOCR loaded.")
 
         torch.set_num_threads(os.cpu_count() or 4)
+
+        # ── Debug snapshot directory ───────────────────────────────────────────
+        self._debug_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), '..', 'debug_snapshots'
+        )
+        os.makedirs(self._debug_dir, exist_ok=True)
+
         print("[System] Ready.\n")
 
     # ── Qwen2.5-VL — single call with ALL images ───────────────────────────────
@@ -256,11 +271,24 @@ class AIInspectionSystem:
 
     def _read_paddleocr(self, img_bgr):
         try:
-            results = self.ocr_reader.readtext(img_bgr, detail=1, paragraph=False, min_size=5)
+            self._last_ocr_raw = self.ocr_reader.readtext(
+                img_bgr, detail=1, paragraph=False, min_size=5
+            )
         except Exception as e:
             print(f"[OCR] EasyOCR failed: {e}")
+            self._last_ocr_raw = []
             return ''
-        return ' '.join(text for (_, text, conf) in results if conf > 0.25)
+        return ' '.join(text for (_, text, conf) in self._last_ocr_raw if conf > 0.25)
+
+    def _dbg_ocr_overlay(self, img_bgr):
+        """Draw EasyOCR detections from last _read_paddleocr call onto a copy."""
+        vis = img_bgr.copy()
+        for (bbox, text, conf) in getattr(self, '_last_ocr_raw', []):
+            pts = np.array(bbox, dtype=np.int32)
+            cv2.polylines(vis, [pts], True, (0, 255, 0), 2)
+            cv2.putText(vis, f"{text} {conf:.2f}", tuple(pts[0].tolist()),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        return vis
 
     # ── Barcode helpers ────────────────────────────────────────────────────────
 
@@ -401,9 +429,24 @@ class AIInspectionSystem:
             result["status"] = "Error: no images loaded"
             return result
 
+        # ── Debug run folder ───────────────────────────────────────────────────
+        _ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
+        _rdir = os.path.join(self._debug_dir, _ts)
+        os.makedirs(_rdir, exist_ok=True)
+
+        def _dbg(name, img):
+            path = os.path.join(_rdir, name)
+            if isinstance(img, np.ndarray):
+                cv2.imwrite(path, img)
+            else:
+                img.save(path)
+
         # ── Auto-orient (fix upside-down products) ─────────────────────────────
         print(f"[Orient] Checking orientation on {len(loaded)} image(s)...")
         loaded = [(path, self._best_rotation(img)) for path, img in loaded]
+
+        for i, (_, img) in enumerate(loaded):
+            _dbg(f'1_oriented_{i}.jpg', img)
 
         # ── Phase 1: Barcode ───────────────────────────────────────────────────
         print(f"[Phase 1] Scanning {len(loaded)} image(s) for barcode...")
@@ -427,18 +470,30 @@ class AIInspectionSystem:
                 return result
 
         # Pass 2 — YOLO region proposal → padded crop → decode.
-        # Helps with partially occluded barcodes where isolating the region improves decoding.
-        for path, img in loaded:
+        # Also saves a debug image with all detected barcode boxes drawn.
+        for i, (path, img) in enumerate(loaded):
             if self.barcode_detector:
+                vis = img.copy()
+                any_box = False
                 for det in self.barcode_detector(img, verbose=False):
                     for box in det.boxes:
                         xyxy = box.xyxy[0].cpu().numpy().astype(int)
+                        conf = float(box.conf[0])
+                        cv2.rectangle(vis, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (0, 255, 0), 3)
+                        cv2.putText(vis, f"barcode {conf:.2f}", (xyxy[0], max(0, xyxy[1] - 10)),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                        any_box = True
                         value = self._decode_crop(self._padded_crop(img, xyxy))
                         if value:
+                            cv2.putText(vis, value, (xyxy[0], xyxy[3] + 30),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
+                            _dbg(f'2_barcode_yolo_{i}_DECODED.jpg', vis)
                             result["barcode"] = value
                             result["status"] = "Complete (Barcode)"
                             print(f"[Phase 1] Barcode (YOLO crop): {value}")
                             return result
+                label = 'boxes' if any_box else 'no_detection'
+                _dbg(f'2_barcode_yolo_{i}_{label}.jpg', vis)
 
         print("[Phase 1] No barcode — moving to Phase 2.")
 
@@ -451,6 +506,7 @@ class AIInspectionSystem:
         _OCR_TARGET = 1920
         _clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         ocr_text_parts = []
+        _ocr_idx = 0
         if self.ocr_ready:
             for _, img in loaded:
                 h, w = img.shape[:2]
@@ -465,8 +521,12 @@ class AIInspectionSystem:
                 lab = cv2.cvtColor(img_up, cv2.COLOR_BGR2LAB)
                 lab[..., 0] = _clahe.apply(lab[..., 0])
                 img_up = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+                _dbg(f'3_ocr_input_{_ocr_idx}.jpg', img_up)
                 t = self._read_paddleocr(img_up)
+                _dbg(f'3_ocr_output_{_ocr_idx}.jpg', self._dbg_ocr_overlay(img_up))
+                _ocr_idx += 1
                 if t.strip():
+                    print(f"[OCR] Text: {t}")
                     if not result["dotted_label_text"]:
                         result["dotted_label_text"] = t
                     ocr_text_parts.append(t)
@@ -489,6 +549,8 @@ class AIInspectionSystem:
             Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             for img in vlm_imgs
         ]
+        for i, pil in enumerate(pil_images):
+            _dbg(f'4_qwen_input_{i}.jpg', pil)
         qwen_data = self._qwen_extract(pil_images)
         result.update({k: v for k, v in qwen_data.items() if v})
 
@@ -500,6 +562,12 @@ class AIInspectionSystem:
                     result[k] = v
 
         result["status"] = "Complete (Vision)" if result.get("brand") else "Incomplete"
+
+        # Save final result alongside snapshots
+        with open(os.path.join(_rdir, 'result.json'), 'w') as f:
+            json.dump({k: v for k, v in result.items() if k != 'images'}, f, indent=2)
+        print(f"[Debug] Snapshots saved → debug_snapshots/{_ts}/")
+
         return result
 
     def inspect_image(self, image_path):
