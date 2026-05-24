@@ -262,7 +262,15 @@ class AIInspectionSystem:
             return ''
         if not result:
             return ''
-        return ' '.join(text for (_, text, conf) in result if conf > 0.25)
+        texts = []
+        for item in result:
+            if len(item) >= 3:
+                text, conf = item[1], item[2]
+                if float(conf) > 0.25:
+                    texts.append(text)
+            elif len(item) >= 2:
+                texts.append(item[1])
+        return ' '.join(texts)
 
     # ── Barcode helpers ────────────────────────────────────────────────────────
 
