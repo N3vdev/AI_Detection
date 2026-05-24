@@ -1,110 +1,75 @@
-W0524 12:31:15.734000 9648 site-packages\torch\utils\flop_counter.py:29] triton not found; flop counting will not work for triton kernels
-Fetching 2 files: 100%|███████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:00<00:00, 29228.60it/s]
-Download complete: : 0.00B [00:00, ?B/s]                                                                                                                 | 0/2 [00:00<?, ?it/s]
-Loading weights:   0%|▏                                                                                                                        | 1/824 [00:00<02:52,  4.78it/s]C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\bitsandbytes\backends\cuda\ops.py:213: FutureWarning: _check_is_size will be removed in a future PyTorch release along with guard_size_oblivious.     Use _check(i >= 0) instead.
-  torch._check_is_size(blocksize)
-Loading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 824/824 [00:03<00:00, 248.63it/s]
-[System] Qwen/Qwen2.5-VL-3B-Instruct loaded.
-[System] Loading PaddleOCR...
-Creating model: ('PP-LCNet_x1_0_doc_ori', None, None)
-Model files already exist. Using cached files. To redownload, please delete the directory manually: `C:\Users\nevin\.paddlex\official_models\PP-LCNet_x1_0_doc_ori`.
-Exception in thread InspectionWorker:
+
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     103.50.23.165:0 - "GET / HTTP/1.1" 200 OK
+[Orient] Checking orientation on 1 image(s)...
+[Orient] Rotated 180° (edge heuristic)
+[Phase 1] Scanning 1 image(s) for barcode...
+WARNING: .\zbar\decoder\pdf417.c:89: <unknown>: Assertion "g[0] >= 0 && g[1] >= 0 && g[2] >= 0" failed.
+        dir=0 sig=1b6e1 k=6 g0=b64 g1=ffffffff g2=c9d buf[0000]=
+WARNING: .\zbar\decoder\pdf417.c:89: <unknown>: Assertion "g[0] >= 0 && g[1] >= 0 && g[2] >= 0" failed.
+        dir=0 sig=346d k=3 g0=ed6 g1=ffffffff g2=4d7 buf[0000]=
+[Phase 1] No barcode — moving to Phase 2.
+INFO:     103.50.23.165:0 - "POST /inspect HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
 Traceback (most recent call last):
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1041, in _bootstrap_inner
-    self.run()
-    ~~~~~~~~^^
-  File "D:\Codes\AI Detection Model\live\inspection_worker.py", line 43, in run
-    self._load_models()
-    ~~~~~~~~~~~~~~~~~^^
-  File "D:\Codes\AI Detection Model\live\inspection_worker.py", line 37, in _load_models
-    self._ai = AIInspectionSystem(
-               ~~~~~~~~~~~~~~~~~~^
-        barcode_model_path=self.config.BARCODE_DETECTOR_MODEL,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        qwen_model_id=self.config.QWEN_MODEL_ID,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     )
     ^
-  File "D:\Codes\AI Detection Model\src\detect.py", line 185, in __init__
-    self.ocr_reader = PaddleOCR(
-                      ~~~~~~~~~^
-        use_angle_cls=True,
-        ^^^^^^^^^^^^^^^^^^^
-        lang='en',
-        ^^^^^^^^^^
-        device='cpu',  # GPU occupied by Qwen; OCR models are fast on CPU
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\applications.py", line 112, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
+    raise exc
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 715, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 735, in app
+    await route.handle(scope, receive, send)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 288, in handle
+    await self.app(scope, receive, send)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 76, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
     )
     ^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\ocr.py", line 163, in __init__
-    super().__init__(**base_params)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\base.py", line 67, in __init__
-    self.paddlex_pipeline = self._create_paddlex_pipeline()
-                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\base.py", line 105, in _create_paddlex_pipeline
-    return create_pipeline(config=self._merged_paddlex_config, **kwargs)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\__init__.py", line 169, in create_pipeline
-    pipeline = BasePipeline.get(pipeline_name)(
-        config=config,
-    ...<6 lines>...
-        **kwargs,
-    )
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\utils\deps.py", line 208, in _wrapper
-    return old_init_func(self, *args, **kwargs)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 135, in __init__
-    self._pipeline = self._create_internal_pipeline(config, self.device)
-                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 190, in _create_internal_pipeline
-    pipeline = self._pipeline_cls(
-        config,
-    ...<6 lines>...
-        **self._init_kwargs,
-    )
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\ocr\pipeline.py", line 85, in __init__
-    self.doc_preprocessor_pipeline = self.create_pipeline(
-                                     ~~~~~~~~~~~~~~~~~~~~^
-        doc_preprocessor_config
-        ^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\base.py", line 181, in create_pipeline
-    return create_pipeline(
-        config=config,
-    ...<8 lines>...
-        **kwargs,
-    )
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\__init__.py", line 169, in create_pipeline
-    pipeline = BasePipeline.get(pipeline_name)(
-        config=config,
-    ...<6 lines>...
-        **kwargs,
-    )
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\utils\deps.py", line 208, in _wrapper
-    return old_init_func(self, *args, **kwargs)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 135, in __init__
-    self._pipeline = self._create_internal_pipeline(config, self.device)
-                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\_parallel.py", line 190, in _create_internal_pipeline
-    pipeline = self._pipeline_cls(
-        config,
-    ...<6 lines>...
-        **self._init_kwargs,
-    )
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\doc_preprocessor\pipeline.py", line 78, in __init__
-    self.doc_ori_classify_model = self.create_model(doc_ori_classify_config)
-                                  ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\pipelines\base.py", line 143, in create_model
-    return create_predictor(
-        model_name=config["model_name"],
-    ...<9 lines>...
-        **kwargs,
-    )
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\__init__.py", line 457, in create_predictor
-    requested_engine.ensure_environment()
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddlex\inference\models\engines\paddle.py", line 98, in ensure_environment
-    raise RuntimeError(
-    ...<2 lines>...
-    )
-RuntimeError: Engine 'paddle_static' is unavailable because dependency 'paddlepaddle' is not installed.
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Codes\AI Detection Model\demo_server.py", line 77, in inspect
+    result = _ai.inspect_product(paths)
+  File "D:\Codes\AI Detection Model\src\detect.py", line 456, in inspect_product
+    t = self._read_paddleocr(img_up)
+  File "D:\Codes\AI Detection Model\src\detect.py", line 261, in _read_paddleocr
+    result = self.ocr_reader.ocr(img_bgr, cls=True)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\warnings.py", line 637, in wrapper
+    return arg(*args, **kwargs)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\paddleocr\_pipelines\ocr.py", line 231, in ocr
+    return self.predict(img, **kwargs)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^
+TypeError: PaddleOCR.predict() got an unexpected keyword argument 'cls'
