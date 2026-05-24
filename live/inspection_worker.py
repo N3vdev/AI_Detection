@@ -38,6 +38,7 @@ class InspectionWorker(threading.Thread):
             barcode_model_path=self.config.BARCODE_DETECTOR_MODEL,
             qwen_model_id=self.config.QWEN_MODEL_ID,
             world_model_id=self.config.YOLO_WORLD_MODEL,
+            debug=self.config.SAVE_DEBUG_SNAPSHOTS,
         )
 
     def run(self):

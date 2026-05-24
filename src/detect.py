@@ -148,7 +148,13 @@ class AIInspectionSystem:
         barcode_model_path='models/barcode_detector.pt',
         qwen_model_id='Qwen/Qwen2.5-VL-3B-Instruct',
         world_model_id='yolov8m-worldv2.pt',
+        debug=True,
     ):
+        """
+        debug=True  → save per-step snapshots to debug_snapshots/ (demo / dev use)
+        debug=False → skip all debug writes (production conveyor — saves disk + minor speedup)
+        """
+        self._debug = debug
         print("[System] Initializing AI Inspection Pipeline...")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f"[System] Device: {self.device.upper()}")
@@ -473,15 +479,19 @@ class AIInspectionSystem:
 
         # ── Debug run folder ───────────────────────────────────────────────────
         _ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
-        _rdir = os.path.join(self._debug_dir, _ts)
-        os.makedirs(_rdir, exist_ok=True)
-
-        def _dbg(name, img):
-            path = os.path.join(_rdir, name)
-            if isinstance(img, np.ndarray):
-                cv2.imwrite(path, img)
-            else:
-                img.save(path)
+        if self._debug:
+            _rdir = os.path.join(self._debug_dir, _ts)
+            os.makedirs(_rdir, exist_ok=True)
+            def _dbg(name, img):
+                path = os.path.join(_rdir, name)
+                if isinstance(img, np.ndarray):
+                    cv2.imwrite(path, img)
+                else:
+                    img.save(path)
+        else:
+            _rdir = None
+            def _dbg(name, img):
+                pass  # no-op in production
 
         # ── Auto-orient (fix upside-down products) ─────────────────────────────
         print(f"[Orient] Checking orientation on {len(loaded)} image(s)...")
@@ -584,6 +594,7 @@ class AIInspectionSystem:
         _OCR_TARGET = 1920
         _clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         ocr_text_parts = []
+        text_region_crops = []  # tight crops around text clusters → sent to Qwen at higher detail
         _ocr_idx = 0
         if self.ocr_ready:
             for img in ocr_targets:
@@ -602,6 +613,33 @@ class AIInspectionSystem:
                 _dbg(f'3_ocr_input_{_ocr_idx}.jpg', img_up)
                 t = self._read_paddleocr(img_up, min_conf=_ocr_conf)
                 _dbg(f'3_ocr_output_{_ocr_idx}.jpg', self._dbg_ocr_overlay(img_up))
+
+                # Compute a tight crop around all detected text boxes.
+                # Uses a low position threshold (0.20) — we only care about WHERE
+                # text is, not whether EasyOCR read it correctly.
+                # This crop is sent to Qwen so small sticker text (batch, MFD)
+                # occupies a much larger fraction of Qwen's token budget.
+                _raw = getattr(self, '_last_ocr_raw', [])
+                _pos_boxes = [bbox for (bbox, _, c) in _raw if c > 0.20]
+                if len(_pos_boxes) >= 5:
+                    _pts = [pt for bbox in _pos_boxes for pt in bbox]
+                    _xs = [p[0] for p in _pts]
+                    _ys = [p[1] for p in _pts]
+                    _hh, _ww = img_up.shape[:2]
+                    _px, _py = int(_ww * 0.04), int(_hh * 0.04)
+                    _cx1 = max(0, int(min(_xs)) - _px)
+                    _cy1 = max(0, int(min(_ys)) - _py)
+                    _cx2 = min(_ww, int(max(_xs)) + _px)
+                    _cy2 = min(_hh, int(max(_ys)) + _py)
+                    _frac = (_cx2 - _cx1) * (_cy2 - _cy1) / (_hh * _ww)
+                    if 0 < _frac < 0.75:
+                        _tc = img_up[_cy1:_cy2, _cx1:_cx2]
+                        if _tc.size > 0:
+                            text_region_crops.append(_tc)
+                            _dbg(f'3_text_region_{_ocr_idx}.jpg', _tc)
+                            print(f"[OCR] Text-region crop: {_cx2-_cx1}×{_cy2-_cy1} "
+                                  f"({_frac*100:.0f}% of frame) → Qwen")
+
                 _ocr_idx += 1
                 if t.strip():
                     print(f"[OCR] Text (conf≥{_ocr_conf}): {t}")
@@ -610,14 +648,20 @@ class AIInspectionSystem:
                     ocr_text_parts.append(t)
 
         # ── Phase 3: Qwen2.5-VL ────────────────────────────────────────────────
-        # Priority: YOLO-World label/logo crops → sharpest full images as fallback.
-        # Sending focused crops gives Qwen higher effective resolution on label text.
+        # Build image list for Qwen:
+        #   1. YOLO-World label/logo crops (if any)
+        #   2. EasyOCR text-region crops (tight crop of detected text — higher detail
+        #      than full image, lets Qwen read small stickers / inkjet dates properly)
+        #   3. Sharpest full image(s) as fallback / brand-name context
         _LABEL_PRIORITY = ["product label", "label sticker", "brand logo",
                            "nutrition facts panel", "ingredient list"]
         vlm_imgs = [regions[c] for c in _LABEL_PRIORITY if c in regions]
 
+        # Always add text-region crops — they give Qwen focused detail on the label area
+        vlm_imgs.extend(text_region_crops)
+
         if not vlm_imgs:
-            # No regions detected — fall back to sharpest full images
+            # Nothing found at all — give Qwen the sharpest full images
             _VLM_MAX = 2
             if len(loaded) > _VLM_MAX:
                 ranked = sorted(loaded, reverse=True,
@@ -628,13 +672,13 @@ class AIInspectionSystem:
             else:
                 vlm_imgs = [img for _, img in loaded]
         else:
-            # Add the sharpest full image for product context (brand, name)
+            # Add the sharpest full image for brand/product-name context
             sharpest = max(loaded, key=lambda x: cv2.Laplacian(
                 cv2.cvtColor(x[1], cv2.COLOR_BGR2GRAY), cv2.CV_64F
             ).var())[1]
             vlm_imgs.append(sharpest)
 
-        vlm_imgs = vlm_imgs[:3]  # cap at 3 — more than enough context
+        vlm_imgs = vlm_imgs[:4]  # cap at 4 — text-region crop adds one slot
 
         print(f"[Phase 3] Qwen2.5-VL on {len(vlm_imgs)} image(s)...")
         pil_images = [
@@ -655,10 +699,10 @@ class AIInspectionSystem:
 
         result["status"] = "Complete (Vision)" if result.get("brand") else "Incomplete"
 
-        # Save final result alongside snapshots
-        with open(os.path.join(_rdir, 'result.json'), 'w') as f:
-            json.dump({k: v for k, v in result.items() if k != 'images'}, f, indent=2)
-        print(f"[Debug] Snapshots saved → debug_snapshots/{_ts}/")
+        if self._debug:
+            with open(os.path.join(_rdir, 'result.json'), 'w') as f:
+                json.dump({k: v for k, v in result.items() if k != 'images'}, f, indent=2)
+            print(f"[Debug] Snapshots saved → debug_snapshots/{_ts}/")
 
         return result
 

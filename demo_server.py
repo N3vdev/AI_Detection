@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
         barcode_model_path=config.BARCODE_DETECTOR_MODEL,
         qwen_model_id=config.QWEN_MODEL_ID,
         world_model_id=config.YOLO_WORLD_MODEL,
+        debug=True,  # always save debug snapshots in demo mode
     )
     print("[Demo] Models loaded. Server ready at http://localhost:8000\n")
     yield

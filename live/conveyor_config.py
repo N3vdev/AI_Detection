@@ -55,3 +55,8 @@ SNAPSHOT_DIR = "snapshots"
 DB_PATH = "db/inspections.db"
 JSON_LOG_PATH = "db/inspections_log.jsonl"
 SNAPSHOT_JPEG_QUALITY = 95
+
+# ── Debug ──────────────────────────────────────────────────────────────────────
+# Set True while tuning — saves per-step pipeline images to debug_snapshots/.
+# Set False for production: avoids filling disk with hundreds of debug folders.
+SAVE_DEBUG_SNAPSHOTS = True
