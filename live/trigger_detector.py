@@ -11,7 +11,7 @@ class TriggerDetector:
         enter_frames=3,
         leave_frames=8,
     ):
-        print("[Trigger] Loading YOLOv8n on CPU...")
+        print(f"[Trigger] Loading {yolo_model_path} on CPU...")
         self.model = YOLO(yolo_model_path)
         self.model.to("cpu")
         print("[Trigger] Ready.")

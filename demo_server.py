@@ -41,7 +41,6 @@ async def lifespan(app: FastAPI):
     print("[Demo] Loading AI models — please wait...")
     _ai = AIInspectionSystem(
         barcode_model_path=config.BARCODE_DETECTOR_MODEL,
-        ocr_model_path=config.DOTTED_OCR_MODEL,
         qwen_model_id=config.QWEN_MODEL_ID,
     )
     print("[Demo] Models loaded. Server ready at http://localhost:8000\n")
