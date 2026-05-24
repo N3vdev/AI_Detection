@@ -1,67 +1,14 @@
-INFO:     103.50.23.174:0 - "POST /inspect HTTP/1.1" 200 OK
-[Orient] Checking orientation on 1 image(s)...
-[Orient] Rotated 180° (edge heuristic)
+[Debug] Snapshots saved → debug_snapshots/20260524_180737_722/
+INFO:     2409:40c0:23:78c9:b14b:77af:47d8:3804:0 - "POST /inspect HTTP/1.1" 200 OK
+[Phase 1] Scanning 3 image(s) for barcode...
+[Phase 1] Barcode (direct): 8901262302067
+INFO:     2409:40c0:23:78c9:b14b:77af:47d8:3804:0 - "POST /inspect HTTP/1.1" 200 OK
 [Phase 1] Scanning 1 image(s) for barcode...
+[Phase 1] Barcode (direct): 8901262302067
+INFO:     2409:40c0:23:78c9:b14b:77af:47d8:3804:0 - "POST /inspect HTTP/1.1" 200 OK
+[Phase 1] Scanning 2 image(s) for barcode...
+WARNING: .\zbar\decoder\pdf417.c:89: <unknown>: Assertion "g[0] >= 0 && g[1] >= 0 && g[2] >= 0" failed.
+        dir=0 sig=1a8d3 k=0 g0=000 g1=ffffffff g2=949 buf[0000]=
+WARNING: .\zbar\decoder\pdf417.c:89: <unknown>: Assertion "g[0] >= 0 && g[1] >= 0 && g[2] >= 0" failed.
+        dir=1 sig=24d40 k=0 g0=eb3 g1=ffffffff g2=ffffffff buf[0000]=
 [Phase 1] No barcode — moving to Phase 2.
-INFO:     103.50.23.174:0 - "POST /inspect HTTP/1.1" 500 Internal Server Error
-ERROR:    Exception in ASGI application
-Traceback (most recent call last):
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\uvicorn\protocols\http\httptools_impl.py", line 409, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        self.scope, self.receive, self.send
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\applications.py", line 1054, in __call__
-    await super().__call__(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\applications.py", line 112, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 187, in __call__
-    raise exc
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\errors.py", line 165, in __call__
-    await self.app(scope, receive, _send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\middleware\exceptions.py", line 62, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 715, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 735, in app
-    await route.handle(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 288, in handle
-    await self.app(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 76, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\starlette\routing.py", line 73, in app
-    response = await f(request)
-               ^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 301, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-    )
-    ^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
-    return await dependant.call(**values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\Codes\AI Detection Model\demo_server.py", line 77, in inspect
-    result = _ai.inspect_product(paths)
-  File "D:\Codes\AI Detection Model\src\detect.py", line 470, in inspect_product
-    t = self._read_paddleocr(img_up)
-  File "D:\Codes\AI Detection Model\src\detect.py", line 265, in _read_paddleocr
-    return ' '.join(text for (_, text, conf) in result if conf > 0.25)
-           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\Codes\AI Detection Model\src\detect.py", line 265, in <genexpr>
-    return ' '.join(text for (_, text, conf) in result if conf > 0.25)
-                                                          ^^^^^^^^^^^
-TypeError: '>' not supported between instances of 'str' and 'float'
