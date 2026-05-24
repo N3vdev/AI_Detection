@@ -36,13 +36,14 @@ _MON = (
 _EXP_KW = (
     r'(?:'
     r'EXP(?:IRY|IRES?|IRE|IRATION(?:\s*DATE)?)?'   # EXP, EXPIRY, EXPIRES, EXPIRATION DATE
-    r'|BB\.?D?'                                      # BB, BBD
-    r'|B\.B\.?D?'                                    # B.B, B.B.D
-    r'|BEST\s*(?:BEFORE|BY|USED?\s*BY)'              # BEST BEFORE, BEST BY, BEST USED BY
+    r'|BB\.?[DE]?'                                   # BB, BBD, BBE (Best Before End)
+    r'|B\.B\.?[DE]?'                                 # B.B, B.B.D, B.B.E
+    r'|BEST\s*BEFORE\s*(?:END|DATE)?'               # BEST BEFORE, BEST BEFORE END, BEST BEFORE DATE
+    r'|BEST\s*(?:BY|USED?\s*BY)'                    # BEST BY, BEST USED BY
     r'|USE\s*(?:BY|BEFORE)(?:\s*DATE)?'              # USE BY, USE BEFORE, USE BY DATE
     r'|USED?\s*BY'                                   # USED BY
     r'|CONSUME\s*(?:BY|BEFORE)'                      # CONSUME BY, CONSUME BEFORE
-    r'|SELL\s*(?:BY|BEFORE)'                         # SELL BY, SELL BEFORE
+    r'|SELL\s*(?:BY|BEFORE)(?:\s*DATE)?'             # SELL BY, SELL BEFORE, SELL BY DATE
     r')'
 )
 
@@ -59,6 +60,7 @@ _MFG_KW = (
     r'|PACKED?\s*(?:ON|DATE)?'                       # PACK, PACKED, PACK ON, PACK DATE
     r'|PACKING\s*DATE'                               # PACKING DATE
     r'|PKD\.?\s*(?:ON)?'                             # PKD, PKD ON
+    r'|PACKAGED\s*ON'                                # PACKAGED ON
     r'|PACKAGING\s*DATE'                             # PACKAGING DATE
     r'|MADE\s*ON'                                    # MADE ON
     r')'
@@ -102,14 +104,17 @@ _DATE_PATTERNS = [
     (r'\b(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{2,4})\b',                                   'expiry_date'),
 ]
 
-# YOLO-World open-vocabulary classes — what to look for on product packaging
+# YOLO-World classes — concrete VISUAL objects YOLO-World can reliably detect.
+# Avoid semantic/abstract concepts ("expiry date") — YOLO can't see meaning,
+# only visual patterns. Detect the label/sticker region, then let Qwen read it.
 _WORLD_CLASSES = [
-    "product label",       # main printed label
-    "expiry date",         # inkjet / printed expiry / best-before date
-    "manufacture date",    # inkjet / printed MFG / packed date
-    "brand logo",          # brand name or company logo
-    "barcode",             # 1D / 2D barcode region
-    "nutrition facts",     # nutrition information panel
+    "product label",          # main printed label on packaging
+    "label sticker",          # adhesive sticker label
+    "nutrition facts panel",  # nutrition information table
+    "barcode",                # 1D linear barcode
+    "QR code",                # 2D QR / DataMatrix code
+    "brand logo",             # company logo or brand name graphic
+    "ingredient list",        # block of small ingredient text
 ]
 
 _BATCH_PATTERN = re.compile(
@@ -402,7 +407,7 @@ class AIInspectionSystem:
 
     # ── YOLO-World region detection ────────────────────────────────────────────
 
-    def _detect_regions(self, img_bgr, conf=0.15):
+    def _detect_regions(self, img_bgr, conf=0.08):
         """
         Run YOLO-World on img_bgr and return a dict of class_name → crop (numpy BGR).
         Only keeps the highest-confidence detection per class.
@@ -549,7 +554,7 @@ class AIInspectionSystem:
                         _dbg(f'2b_world_crop_{name.replace(" ", "_")}.jpg', crop)
                         print(f"[World] Detected: {name}")
                 # Draw all boxes on vis for the debug overview image
-                raw = self.world_detector(img, verbose=False, conf=0.15)
+                raw = self.world_detector(img, verbose=False, conf=0.08)
                 for det in raw:
                     for box in det.boxes:
                         cls_id = int(box.cls[0])
@@ -562,15 +567,15 @@ class AIInspectionSystem:
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
                 _dbg(f'2b_world_overview_{i}.jpg', vis)
             if not regions:
-                print("[World] No regions detected — using full images")
+                print("[World] No regions detected — Qwen will read full images")
 
         # ── Phase 2: EasyOCR ──────────────────────────────────────────────────
-        # Prefer YOLO-World date crops if found (much better accuracy on small
-        # inkjet text). Fall back to full images if nothing detected.
-        _DATE_CLASSES = ["expiry date", "manufacture date"]
-        ocr_targets = [regions[c] for c in _DATE_CLASSES if c in regions]
-        if not ocr_targets:
-            ocr_targets = [img for _, img in loaded]
+        # Only run OCR on YOLO-World crops — these contain the label/text area.
+        # Running EasyOCR on full high-res images produces garbage text that
+        # Phase 4 regex picks up as wrong dates. If no crops, skip OCR and let
+        # Qwen handle everything.
+        _OCR_CLASSES = ["product label", "label sticker", "ingredient list", "nutrition facts panel"]
+        ocr_targets = [regions[c] for c in _OCR_CLASSES if c in regions]
 
         _OCR_TARGET = 1920
         _clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
@@ -603,8 +608,8 @@ class AIInspectionSystem:
         # ── Phase 3: Qwen2.5-VL ────────────────────────────────────────────────
         # Priority: YOLO-World label/logo crops → sharpest full images as fallback.
         # Sending focused crops gives Qwen higher effective resolution on label text.
-        _LABEL_PRIORITY = ["product label", "brand logo", "expiry date",
-                           "manufacture date", "nutrition facts"]
+        _LABEL_PRIORITY = ["product label", "label sticker", "brand logo",
+                           "nutrition facts panel", "ingredient list"]
         vlm_imgs = [regions[c] for c in _LABEL_PRIORITY if c in regions]
 
         if not vlm_imgs:
