@@ -12,9 +12,18 @@ from ultralytics import YOLO
 import easyocr
 
 try:
-    from pyzbar.pyzbar import decode as pyzbar_decode
+    from pyzbar.pyzbar import decode as pyzbar_decode, ZBarSymbol
+    # Only scan formats found on retail products — excludes PDF417 (boarding passes/IDs)
+    # which causes noisy assertion warnings on images with vaguely PDF417-like patterns.
+    _PYZBAR_SYMBOLS = [
+        ZBarSymbol.EAN13, ZBarSymbol.EAN8,
+        ZBarSymbol.UPCA, ZBarSymbol.UPCE,
+        ZBarSymbol.CODE128, ZBarSymbol.CODE39, ZBarSymbol.CODE93,
+        ZBarSymbol.QRCODE, ZBarSymbol.DATAMATRIX, ZBarSymbol.I25,
+    ]
 except ImportError:
     pyzbar_decode = None
+    _PYZBAR_SYMBOLS = None
 
 # Qwen2.5-VL (newer) with fallback to Qwen2-VL
 try:
@@ -333,7 +342,7 @@ class AIInspectionSystem:
         def _try(img):
             if pyzbar_decode:
                 try:
-                    for r in pyzbar_decode(img):
+                    for r in pyzbar_decode(img, symbols=_PYZBAR_SYMBOLS):
                         v = r.data.decode("utf-8")
                         if v:
                             return v
