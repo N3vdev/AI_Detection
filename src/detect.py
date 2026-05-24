@@ -15,11 +15,11 @@ try:
     from pyzbar.pyzbar import decode as pyzbar_decode, ZBarSymbol
     # Only scan formats found on retail products — excludes PDF417 (boarding passes/IDs)
     # which causes noisy assertion warnings on images with vaguely PDF417-like patterns.
+    # Build defensively: some ZBar Windows builds omit DATAMATRIX / CODE93 / I25.
     _PYZBAR_SYMBOLS = [
-        ZBarSymbol.EAN13, ZBarSymbol.EAN8,
-        ZBarSymbol.UPCA, ZBarSymbol.UPCE,
-        ZBarSymbol.CODE128, ZBarSymbol.CODE39, ZBarSymbol.CODE93,
-        ZBarSymbol.QRCODE, ZBarSymbol.DATAMATRIX, ZBarSymbol.I25,
+        getattr(ZBarSymbol, s) for s in
+        ('EAN13', 'EAN8', 'UPCA', 'UPCE', 'CODE128', 'CODE39', 'CODE93', 'QRCODE', 'I25')
+        if hasattr(ZBarSymbol, s)
     ]
 except ImportError:
     pyzbar_decode = None
