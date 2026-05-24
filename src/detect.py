@@ -102,6 +102,16 @@ _DATE_PATTERNS = [
     (r'\b(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{2,4})\b',                                   'expiry_date'),
 ]
 
+# YOLO-World open-vocabulary classes — what to look for on product packaging
+_WORLD_CLASSES = [
+    "product label",       # main printed label
+    "expiry date",         # inkjet / printed expiry / best-before date
+    "manufacture date",    # inkjet / printed MFG / packed date
+    "brand logo",          # brand name or company logo
+    "barcode",             # 1D / 2D barcode region
+    "nutrition facts",     # nutrition information panel
+]
+
 _BATCH_PATTERN = re.compile(
     r'(?:BATCH\s*(?:NO\.?|NUMBER|CODE)?|LOT\s*(?:NO\.?|NUMBER)?)[\s:\.]*([A-Z0-9]{5,20})',
     re.IGNORECASE,
@@ -132,6 +142,7 @@ class AIInspectionSystem:
         self,
         barcode_model_path='models/barcode_detector.pt',
         qwen_model_id='Qwen/Qwen2.5-VL-3B-Instruct',
+        world_model_id='yolov8m-worldv2.pt',
     ):
         print("[System] Initializing AI Inspection Pipeline...")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -196,6 +207,18 @@ class AIInspectionSystem:
         print("[System] EasyOCR loaded.")
 
         torch.set_num_threads(os.cpu_count() or 4)
+
+        # ── YOLO-World open-vocabulary region detector ─────────────────────────
+        self.world_detector = None
+        if world_model_id:
+            try:
+                from ultralytics import YOLOWorld
+                print(f"[System] Loading YOLO-World ({world_model_id})...")
+                self.world_detector = YOLOWorld(world_model_id)
+                self.world_detector.set_classes(_WORLD_CLASSES)
+                print("[System] YOLO-World loaded.")
+            except Exception as e:
+                print(f"[Warning] YOLO-World failed to load: {e}")
 
         # ── Debug snapshot directory ───────────────────────────────────────────
         self._debug_dir = os.path.join(
@@ -377,6 +400,31 @@ class AIInspectionSystem:
         # Sobel heuristic removed: it incorrectly flipped phone photos.
         return img_bgr
 
+    # ── YOLO-World region detection ────────────────────────────────────────────
+
+    def _detect_regions(self, img_bgr, conf=0.15):
+        """
+        Run YOLO-World on img_bgr and return a dict of class_name → crop (numpy BGR).
+        Only keeps the highest-confidence detection per class.
+        Returns {} if world_detector not loaded or nothing found.
+        """
+        if not self.world_detector:
+            return {}
+        results = self.world_detector(img_bgr, verbose=False, conf=conf)
+        best = {}  # class_name → (score, crop)
+        for det in results:
+            for box in det.boxes:
+                cls_id = int(box.cls[0])
+                name = _WORLD_CLASSES[cls_id]
+                score = float(box.conf[0])
+                if name in best and score <= best[name][0]:
+                    continue
+                xyxy = box.xyxy[0].cpu().numpy().astype(int)
+                crop = self._padded_crop(img_bgr, xyxy, pad=0.05)
+                if crop is not None and crop.size > 0:
+                    best[name] = (score, crop)
+        return {name: crop for name, (_, crop) in best.items()}
+
     # ── Main pipeline ──────────────────────────────────────────────────────────
 
     def inspect_product(self, image_paths):
@@ -486,18 +534,50 @@ class AIInspectionSystem:
 
         print("[Phase 1] No barcode — moving to Phase 2.")
 
-        # ── Phase 2: PaddleOCR — read all text from each image ───────────────
-        # Normalise to ~1920px max side before OCR:
-        #   • small webcam frames (≤960px) → upscale 2× so text is ≥20px tall
-        #   • large phone photos (>1920px) → downscale; text is already large
-        #   • mid-range images → keep as-is
-        # CLAHE boosts contrast on low-contrast inkjet/dotted labels.
+        # ── YOLO-World: detect label/date/logo regions ─────────────────────────
+        # Runs on all images, keeps best-confidence crop per class.
+        # Saves a debug image with all boxes drawn + individual crops.
+        regions = {}  # class_name → numpy BGR crop
+        if self.world_detector:
+            print("[World] Scanning for label/date/logo regions...")
+            for i, (_, img) in enumerate(loaded):
+                vis = img.copy()
+                r = self._detect_regions(img)
+                for name, crop in r.items():
+                    if name not in regions:
+                        regions[name] = crop
+                        _dbg(f'2b_world_crop_{name.replace(" ", "_")}.jpg', crop)
+                        print(f"[World] Detected: {name}")
+                # Draw all boxes on vis for the debug overview image
+                raw = self.world_detector(img, verbose=False, conf=0.15)
+                for det in raw:
+                    for box in det.boxes:
+                        cls_id = int(box.cls[0])
+                        name = _WORLD_CLASSES[cls_id]
+                        conf_w = float(box.conf[0])
+                        xyxy = box.xyxy[0].cpu().numpy().astype(int)
+                        cv2.rectangle(vis, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (0, 165, 255), 3)
+                        cv2.putText(vis, f"{name} {conf_w:.2f}",
+                                    (xyxy[0], max(0, xyxy[1] - 10)),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
+                _dbg(f'2b_world_overview_{i}.jpg', vis)
+            if not regions:
+                print("[World] No regions detected — using full images")
+
+        # ── Phase 2: EasyOCR ──────────────────────────────────────────────────
+        # Prefer YOLO-World date crops if found (much better accuracy on small
+        # inkjet text). Fall back to full images if nothing detected.
+        _DATE_CLASSES = ["expiry date", "manufacture date"]
+        ocr_targets = [regions[c] for c in _DATE_CLASSES if c in regions]
+        if not ocr_targets:
+            ocr_targets = [img for _, img in loaded]
+
         _OCR_TARGET = 1920
         _clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         ocr_text_parts = []
         _ocr_idx = 0
         if self.ocr_ready:
-            for _, img in loaded:
+            for img in ocr_targets:
                 h, w = img.shape[:2]
                 long_side = max(h, w)
                 if long_side > _OCR_TARGET:
@@ -521,17 +601,31 @@ class AIInspectionSystem:
                     ocr_text_parts.append(t)
 
         # ── Phase 3: Qwen2.5-VL ────────────────────────────────────────────────
-        # Pick the 2 sharpest frames — more images = more tokens = slower.
-        # Two angles give enough context; sending 3+ rarely improves accuracy.
-        _VLM_MAX = 2
-        if len(loaded) > _VLM_MAX:
-            ranked = sorted(loaded, reverse=True,
-                            key=lambda x: cv2.Laplacian(
-                                cv2.cvtColor(x[1], cv2.COLOR_BGR2GRAY), cv2.CV_64F
-                            ).var())
-            vlm_imgs = [img for _, img in ranked[:_VLM_MAX]]
+        # Priority: YOLO-World label/logo crops → sharpest full images as fallback.
+        # Sending focused crops gives Qwen higher effective resolution on label text.
+        _LABEL_PRIORITY = ["product label", "brand logo", "expiry date",
+                           "manufacture date", "nutrition facts"]
+        vlm_imgs = [regions[c] for c in _LABEL_PRIORITY if c in regions]
+
+        if not vlm_imgs:
+            # No regions detected — fall back to sharpest full images
+            _VLM_MAX = 2
+            if len(loaded) > _VLM_MAX:
+                ranked = sorted(loaded, reverse=True,
+                                key=lambda x: cv2.Laplacian(
+                                    cv2.cvtColor(x[1], cv2.COLOR_BGR2GRAY), cv2.CV_64F
+                                ).var())
+                vlm_imgs = [img for _, img in ranked[:_VLM_MAX]]
+            else:
+                vlm_imgs = [img for _, img in loaded]
         else:
-            vlm_imgs = [img for _, img in loaded]
+            # Add the sharpest full image for product context (brand, name)
+            sharpest = max(loaded, key=lambda x: cv2.Laplacian(
+                cv2.cvtColor(x[1], cv2.COLOR_BGR2GRAY), cv2.CV_64F
+            ).var())[1]
+            vlm_imgs.append(sharpest)
+
+        vlm_imgs = vlm_imgs[:3]  # cap at 3 — more than enough context
 
         print(f"[Phase 3] Qwen2.5-VL on {len(vlm_imgs)} image(s)...")
         pil_images = [

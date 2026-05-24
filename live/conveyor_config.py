@@ -42,6 +42,9 @@ SHARPNESS_MIN_VARIANCE = 50.0       # Laplacian variance below this = blurry
 BARCODE_DETECTOR_MODEL = "models/barcode_detector.pt"
 DOTTED_OCR_MODEL = "models/dotted_ocr_retrained.pth"
 QWEN_MODEL_ID = "Qwen/Qwen2.5-VL-3B-Instruct"
+# YOLO-World open-vocabulary region detector (auto-downloads)
+# yolov8s-worldv2.pt = fast (~50ms), yolov8m-worldv2.pt = more accurate (~100ms)
+YOLO_WORLD_MODEL = "yolov8m-worldv2.pt"
 
 # ── Pipeline ───────────────────────────────────────────────────────────────────
 INSPECTION_QUEUE_MAX = 10
