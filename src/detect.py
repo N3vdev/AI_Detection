@@ -6,7 +6,7 @@ import torch
 import numpy as np
 from PIL import Image
 from ultralytics import YOLO
-from paddleocr import PaddleOCR
+import easyocr
 
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
@@ -180,15 +180,13 @@ class AIInspectionSystem:
         self.qwen_processor.image_processor.max_pixels = 640 * 28 * 28
         self.qwen_processor.image_processor.min_pixels = 4 * 28 * 28
 
-        # ── PaddleOCR — dotted/inkjet label reader ────────────────────────────
-        print("[System] Loading PaddleOCR...")
-        self.ocr_reader = PaddleOCR(
-            use_angle_cls=True,
-            lang='en',
-            device='cpu',  # GPU occupied by Qwen; OCR models are fast on CPU
+        # ── EasyOCR — dotted/inkjet label reader (PyTorch-based, no extra framework)
+        print("[System] Loading EasyOCR...")
+        self.ocr_reader = easyocr.Reader(
+            ['en'], gpu=(self.device == 'cuda'), verbose=False
         )
         self.ocr_ready = True
-        print("[System] PaddleOCR loaded.")
+        print("[System] EasyOCR loaded.")
 
         torch.set_num_threads(os.cpu_count() or 4)
         print("[System] Ready.\n")
@@ -258,19 +256,11 @@ class AIInspectionSystem:
             elif key == "batch":    result["batch_number"] = value
         return result
 
-    # ── PaddleOCR text reader ──────────────────────────────────────────────────
+    # ── EasyOCR text reader ────────────────────────────────────────────────────
 
     def _read_paddleocr(self, img_bgr):
-        """Run PaddleOCR on a full product image. Returns all detected text joined."""
-        results = self.ocr_reader.ocr(img_bgr, cls=True)
-        texts = []
-        if results and results[0]:
-            for line in results[0]:
-                if line:
-                    text, conf = line[1]
-                    if conf > 0.3:
-                        texts.append(text)
-        return ' '.join(texts)
+        results = self.ocr_reader.readtext(img_bgr, detail=1, paragraph=False)
+        return ' '.join(text for (_, text, conf) in results if conf > 0.3)
 
     # ── Barcode helpers ────────────────────────────────────────────────────────
 

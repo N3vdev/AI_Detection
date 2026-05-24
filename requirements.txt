@@ -32,14 +32,8 @@ ultralytics
 pyzbar
 
 # ── OCR ───────────────────────────────────────────────────────────────────────
-# PaddleOCR replaces custom CRNN — PP-OCRv4 handles inkjet/dotted labels reliably
-#
-# Step 1 — install PaddlePaddle (CPU — GPU version has cuDNN DLL conflicts on Windows):
-#   pip install paddlepaddle
-#
-# Step 2 — install PaddleOCR:
-#   pip install paddleocr
-paddleocr
+# EasyOCR — PyTorch-based, no separate framework needed, works on Python 3.13
+easyocr
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 pyyaml
