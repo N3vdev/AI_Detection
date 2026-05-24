@@ -15,6 +15,7 @@ Expose to internet (no WiFi required) — run in a second terminal:
 Then share the https://xxxx.trycloudflare.com URL with anyone.
 """
 
+import asyncio
 import os
 import sys
 import time
@@ -102,7 +103,7 @@ async def inspect(images: List[UploadFile] = File(...)):
                 paths.append(tmp.name)
 
         t0 = time.time()
-        result = _ai.inspect_product(paths)
+        result = await asyncio.to_thread(_ai.inspect_product, paths)
         result["processing_ms"] = int((time.time() - t0) * 1000)
     finally:
         for p in paths:
