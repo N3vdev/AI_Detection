@@ -32,9 +32,9 @@ ultralytics
 pyzbar
 
 # ── OCR ───────────────────────────────────────────────────────────────────────
-# PaddleOCR — high-accuracy OCR with text detection + recognition
-paddlepaddle
-paddleocr
+# RapidOCR — PP-OCR models via ONNX Runtime, works on Python 3.13 + Windows
+# (PaddleOCR 3.x crashes on Windows due to PIR executor bug)
+rapidocr-onnxruntime
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 pyyaml

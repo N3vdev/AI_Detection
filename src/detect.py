@@ -7,12 +7,7 @@ import numpy as np
 from PIL import Image
 from ultralytics import YOLO
 
-# Disable PaddlePaddle's PIR executor and oneDNN before the C extension loads.
-# ConvertPirAttribute2RuntimeAttribute crash on Windows is caused by PIR + oneDNN.
-os.environ['FLAGS_enable_pir_api'] = '0'   # use legacy Executor, not PIR
-os.environ['FLAGS_use_mkldnn'] = '0'       # disable Intel oneDNN
-os.environ['PADDLE_DISABLE_ONEDNN'] = '1'
-from paddleocr import PaddleOCR
+from rapidocr_onnxruntime import RapidOCR
 
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
@@ -186,14 +181,11 @@ class AIInspectionSystem:
         self.qwen_processor.image_processor.max_pixels = 640 * 28 * 28
         self.qwen_processor.image_processor.min_pixels = 4 * 28 * 28
 
-        # ── PaddleOCR — inkjet/dotted/printed label reader
-        print("[System] Loading PaddleOCR...")
-        self.ocr_reader = PaddleOCR(
-            use_angle_cls=True,
-            lang='en',
-        )
+        # ── RapidOCR — PP-OCR models via ONNX Runtime (no PaddlePaddle executor)
+        print("[System] Loading RapidOCR...")
+        self.ocr_reader = RapidOCR()
         self.ocr_ready = True
-        print("[System] PaddleOCR loaded.")
+        print("[System] RapidOCR loaded.")
 
         torch.set_num_threads(os.cpu_count() or 4)
         print("[System] Ready.\n")
@@ -264,19 +256,13 @@ class AIInspectionSystem:
 
     def _read_paddleocr(self, img_bgr):
         try:
-            result = self.ocr_reader.ocr(img_bgr)
+            result, _ = self.ocr_reader(img_bgr)
         except Exception as e:
-            print(f"[OCR] PaddleOCR failed: {e}")
+            print(f"[OCR] RapidOCR failed: {e}")
             return ''
-        if not result or result[0] is None:
+        if not result:
             return ''
-        texts = []
-        for line in result[0]:
-            if line and len(line) >= 2:
-                text, conf = line[1][0], line[1][1]
-                if conf > 0.25:
-                    texts.append(text)
-        return ' '.join(texts)
+        return ' '.join(text for (_, text, conf) in result if conf > 0.25)
 
     # ── Barcode helpers ────────────────────────────────────────────────────────
 
@@ -368,7 +354,9 @@ class AIInspectionSystem:
             gy = cv2.Sobel(small, cv2.CV_32F, 0, 1)
             return float(np.sum(np.abs(gy[:85]))) - float(np.sum(np.abs(gy[171:])))
 
-        if _edge_top_score(img_180) > _edge_top_score(img_bgr):
+        s0, s180 = _edge_top_score(img_bgr), _edge_top_score(img_180)
+        # Require a 20% margin to avoid flipping correctly-oriented photos
+        if s180 > s0 and (s180 - s0) > max(abs(s0), abs(s180)) * 0.20:
             print("[Orient] Rotated 180° (edge heuristic)")
             return img_180
 
