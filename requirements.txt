@@ -32,9 +32,8 @@ ultralytics
 pyzbar
 
 # ── OCR ───────────────────────────────────────────────────────────────────────
-# RapidOCR — PP-OCR models via ONNX Runtime, works on Python 3.13 + Windows
-# (PaddleOCR 3.x crashes on Windows due to PIR executor bug)
-rapidocr-onnxruntime
+# EasyOCR — PyTorch-based, works on Python 3.13 + Windows, no extra framework
+easyocr
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 pyyaml

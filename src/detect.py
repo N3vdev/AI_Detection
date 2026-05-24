@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 from ultralytics import YOLO
 
-from rapidocr_onnxruntime import RapidOCR
+import easyocr
 
 try:
     from pyzbar.pyzbar import decode as pyzbar_decode
@@ -182,10 +182,10 @@ class AIInspectionSystem:
         self.qwen_processor.image_processor.min_pixels = 4 * 28 * 28
 
         # ── RapidOCR — PP-OCR models via ONNX Runtime (no PaddlePaddle executor)
-        print("[System] Loading RapidOCR...")
-        self.ocr_reader = RapidOCR()
+        print("[System] Loading EasyOCR...")
+        self.ocr_reader = easyocr.Reader(['en'], gpu=(self.device == 'cuda'), verbose=False)
         self.ocr_ready = True
-        print("[System] RapidOCR loaded.")
+        print("[System] EasyOCR loaded.")
 
         torch.set_num_threads(os.cpu_count() or 4)
         print("[System] Ready.\n")
@@ -256,21 +256,11 @@ class AIInspectionSystem:
 
     def _read_paddleocr(self, img_bgr):
         try:
-            result, _ = self.ocr_reader(img_bgr)
+            results = self.ocr_reader.readtext(img_bgr, detail=1, paragraph=False, min_size=5)
         except Exception as e:
-            print(f"[OCR] RapidOCR failed: {e}")
+            print(f"[OCR] EasyOCR failed: {e}")
             return ''
-        if not result:
-            return ''
-        texts = []
-        for item in result:
-            if len(item) >= 3:
-                text, conf = item[1], item[2]
-                if float(conf) > 0.25:
-                    texts.append(text)
-            elif len(item) >= 2:
-                texts.append(item[1])
-        return ' '.join(texts)
+        return ' '.join(text for (_, text, conf) in results if conf > 0.25)
 
     # ── Barcode helpers ────────────────────────────────────────────────────────
 
