@@ -124,12 +124,16 @@ class FrameDispatcher(QThread):
 class EventBridge(QObject):
     trigger_fired = pyqtSignal(int)
     result_ready  = pyqtSignal(dict)
+    system_ready  = pyqtSignal()
 
     def on_trigger(self, cam_idx):
         self.trigger_fired.emit(cam_idx)
 
     def on_result(self, result):
         self.result_ready.emit(result)
+
+    def on_system_ready(self):
+        self.system_ready.emit()
 
 
 # ── Main window ───────────────────────────────────────────────────────────────
@@ -310,14 +314,16 @@ class ConveyorUIApp(QMainWindow):
         self._session_running = True
         self._btn_start.hide()
         self._btn_stop.show()
-        self._scan_status.setText("Session running")
-        self._scan_status.setStyleSheet("color: #22c55e; font-size: 11px; font-style: normal;")
+        self._scan_status.setText("Loading models...")
+        self._scan_status.setStyleSheet("color: #888; font-size: 11px; font-style: italic;")
 
+        # Lock controls and show loading animation — preview stays live
         for w in self._cam_widgets:
-            w.on_session_start()
+            w.prepare_for_session()
 
         self._bridge.trigger_fired.connect(self._on_trigger)
         self._bridge.result_ready.connect(self._on_result)
+        self._bridge.system_ready.connect(self._on_system_ready)
 
         def run():
             self._system = ConveyorSystem(
@@ -327,22 +333,9 @@ class ConveyorUIApp(QMainWindow):
             )
             self._system.start(self._session_id)
 
-            # Start per-camera YOLO detection for display boxes — reuses trigger's model
-            self._detector = MultiCameraDetector(
-                self._system._buffers,
-                trigger=self._system._trigger,
-                conf=config.TRIGGER_CONFIDENCE_THRESHOLD,
-                min_box_area=config.TRIGGER_MIN_BOX_AREA,
-            )
-            self._detector.start()
-
-            self._dispatcher = FrameDispatcher(
-                self._system._buffers,
-                detector=self._detector,
-            )
-            self._dispatcher.frame_ready.connect(self._on_frame)
-            self._dispatcher.cam_status.connect(self._on_cam_status)
-            self._dispatcher.start()
+            # Signal main thread — detector/dispatcher created there so Qt objects
+            # are always constructed on the GUI thread
+            self._bridge.on_system_ready()
 
             self._system.run_session(self._max_products)
 
@@ -357,6 +350,29 @@ class ConveyorUIApp(QMainWindow):
     def _on_cam_status(self, cam_idx: int, connected: bool):
         if cam_idx < len(self._cam_widgets) and not connected:
             self._cam_widgets[cam_idx].set_disconnected()
+
+    def _on_system_ready(self):
+        self._scan_status.setText("Session running")
+        self._scan_status.setStyleSheet("color: #22c55e; font-size: 11px; font-style: normal;")
+
+        self._detector = MultiCameraDetector(
+            self._system._buffers,
+            trigger=self._system._trigger,
+            conf=config.TRIGGER_CONFIDENCE_THRESHOLD,
+            min_box_area=config.TRIGGER_MIN_BOX_AREA,
+        )
+        self._detector.start()
+
+        self._dispatcher = FrameDispatcher(
+            self._system._buffers,
+            detector=self._detector,
+        )
+        self._dispatcher.frame_ready.connect(self._on_frame)
+        self._dispatcher.cam_status.connect(self._on_cam_status)
+        self._dispatcher.start()
+
+        for w in self._cam_widgets:
+            w.on_session_start()
 
     def _on_trigger(self, cam_idx: int):
         if cam_idx < len(self._cam_widgets):

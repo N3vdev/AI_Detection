@@ -10,6 +10,8 @@ from PyQt6.QtGui import QImage, QPixmap
 
 CAM_LABELS = ["FRONT", "BACK", "LEFT", "RIGHT"]
 
+_SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+
 
 class CameraWidget(QFrame):
     source_changed = pyqtSignal(int, object)   # cam_idx, source (or None)
@@ -90,6 +92,18 @@ class CameraWidget(QFrame):
 
         self._feed.hide()
 
+        # ── Loading overlay — floats over feed, not in layout ──────────────────
+        self._loading_overlay = QLabel(self)
+        self._loading_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._loading_overlay.setStyleSheet(
+            "background: #0a0a0a;"
+            "border-radius: 6px;"
+        )
+        self._loading_overlay.hide()
+        self._loading_step = 0
+        self._loading_anim_timer = QTimer(self)
+        self._loading_anim_timer.timeout.connect(self._tick_loading)
+
         # Preview timer — grabs a frame every 150ms before session starts
         self._preview_timer = QTimer(self)
         self._preview_timer.timeout.connect(self._grab_preview_frame)
@@ -98,6 +112,46 @@ class CameraWidget(QFrame):
         self._flash_timer = QTimer(self)
         self._flash_timer.setSingleShot(True)
         self._flash_timer.timeout.connect(self._clear_flash)
+
+    # ── Resize — reposition floating overlay ─────────────────────────────────
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._reposition_loading_overlay()
+
+    def _reposition_loading_overlay(self):
+        ref = self._feed if self._feed.isVisible() else self._placeholder
+        geo = ref.geometry()
+        if geo.isValid():
+            self._loading_overlay.setGeometry(geo)
+            self._loading_overlay.raise_()
+
+    # ── Loading animation ─────────────────────────────────────────────────────
+
+    def show_loading(self):
+        self._loading_step = 0
+        self._update_loading_text()
+        self._reposition_loading_overlay()
+        self._loading_overlay.show()
+        self._loading_overlay.raise_()
+        self._loading_anim_timer.start(100)
+
+    def hide_loading(self):
+        self._loading_anim_timer.stop()
+        self._loading_overlay.hide()
+
+    def _tick_loading(self):
+        self._loading_step += 1
+        self._update_loading_text()
+
+    def _update_loading_text(self):
+        spin = _SPIN[self._loading_step % len(_SPIN)]
+        self._loading_overlay.setText(
+            f"<div style='text-align:center; line-height:1.8;'>"
+            f"<span style='color:#2a2a2a; font-size:9px; letter-spacing:3px;'>AI MODELS</span><br>"
+            f"<span style='color:#22c55e; font-size:22px;'>{spin}</span>"
+            f"</div>"
+        )
 
     # ── Dropdown population (called by scanner) ───────────────────────────────
 
@@ -168,6 +222,21 @@ class CameraWidget(QFrame):
         if ok:
             self._display_frame(frame)
 
+    # ── Session lifecycle ─────────────────────────────────────────────────────
+
+    def prepare_for_session(self):
+        """Disable controls and start loading animation — preview keeps running."""
+        self._combo.setEnabled(False)
+        self._feed.show()
+        self._placeholder.hide()
+        self.show_loading()
+
+    def on_session_start(self):
+        """System is ready — stop preview and hand off to FrameDispatcher."""
+        self._session_active = True
+        self._stop_preview()
+        self.hide_loading()
+
     # ── Session-mode frame updates (from FrameDispatcher) ─────────────────────
 
     def set_frame(self, qimage: QImage):
@@ -181,12 +250,6 @@ class CameraWidget(QFrame):
         self._placeholder.setText("NO SIGNAL")
         self._placeholder.show()
         self._scanning.hide()
-
-    def on_session_start(self):
-        """Lock the dropdown and stop the preview capture — session owns the camera now."""
-        self._session_active = True
-        self._stop_preview()
-        self._combo.setEnabled(False)
 
     # ── Trigger flash & scanning overlay ──────────────────────────────────────
 

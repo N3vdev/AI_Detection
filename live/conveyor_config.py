@@ -13,8 +13,7 @@ CAMERA_FPS = 30
 
 # Rotate frames after capture — fixes portrait phone streams arriving as landscape
 # Options: cv2.ROTATE_90_CLOCKWISE | cv2.ROTATE_90_COUNTERCLOCKWISE | cv2.ROTATE_180 | None
-import cv2 as _cv2
-CAMERA_ROTATE = _cv2.ROTATE_90_CLOCKWISE   # phone portrait → upright in preview
+CAMERA_ROTATE = None   # None = no rotation (use phone's natural stream orientation)
 
 # Preview window size (small, so it doesn't take up the whole screen)
 PREVIEW_WIDTH  = 360
@@ -31,7 +30,7 @@ TRIGGER_ROI_X_CENTER_BAND = (0.0, 1.0)
 TRIGGER_CONFIDENCE_THRESHOLD = 0.30  # Raise to avoid empty-space false positives
 TRIGGER_MIN_BOX_AREA = 0.05          # Object must cover ≥5% of frame (filters tiny noise)
 TRIGGER_ENTER_FRAMES = 3             # Consecutive detections to confirm product entered
-TRIGGER_LEAVE_FRAMES = 25            # Consecutive empty frames to confirm product left — keep high to survive YOLO flicker
+TRIGGER_LEAVE_FRAMES = 8             # Consecutive empty frames to confirm product left
 
 # ── Frame Buffer & Sync ────────────────────────────────────────────────────────
 FRAME_BUFFER_SIZE = 90              # Frames per camera buffer (3s at 30fps)

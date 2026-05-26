@@ -24,6 +24,7 @@ class TriggerDetector:
         self._product_in_frame = False
         self._presence_count = 0
         self._absence_count = 0
+        self._post_detect_streak = 0   # consecutive detections after trigger — 2+ needed to reset absence
         self.last_boxes = []   # normalized [x1,y1,x2,y2] for drawing on preview
 
     def process_frame(self, frame):
@@ -43,12 +44,16 @@ class TriggerDetector:
                 self._presence_count = 0
         else:
             if has_object:
-                self._absence_count = 0
+                self._post_detect_streak += 1
+                if self._post_detect_streak >= 2:
+                    self._absence_count = 0  # 2 consecutive detections = product genuinely still present
             else:
+                self._post_detect_streak = 0
                 self._absence_count += 1
                 if self._absence_count >= self.leave_frames:
                     self._product_in_frame = False
                     self._absence_count = 0
+                    self._post_detect_streak = 0
 
         return False
 
@@ -75,4 +80,5 @@ class TriggerDetector:
         self._product_in_frame = False
         self._presence_count = 0
         self._absence_count = 0
+        self._post_detect_streak = 0
         self.last_boxes = []
