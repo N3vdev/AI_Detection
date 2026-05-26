@@ -10,13 +10,14 @@ from PyQt6.QtCore import QThread
 
 
 class MultiCameraDetector(QThread):
-    def __init__(self, buffers, trigger, conf=0.30, min_box_area=0.05, parent=None):
+    def __init__(self, buffers, trigger, conf=0.45, min_box_area=0.04, classes=None, parent=None):
         super().__init__(parent)
         self._buffers      = buffers
         self._model        = trigger.model   # reuse already-loaded model
         self._model_lock   = threading.Lock()
         self._conf         = conf
         self._min_box_area = min_box_area
+        self._classes      = classes
         self._running      = True
         self._lock         = threading.Lock()
         self._boxes        = [[] for _ in buffers]
@@ -45,7 +46,7 @@ class MultiCameraDetector(QThread):
     def _detect(self, frame):
         small = cv2.resize(frame, (640, 640))
         with self._model_lock:
-            results = self._model(small, verbose=False, conf=self._conf)
+            results = self._model(small, verbose=False, conf=self._conf, classes=self._classes)
         valid = []
         for box in results[0].boxes:
             x1, y1, x2, y2 = box.xyxy[0].numpy()

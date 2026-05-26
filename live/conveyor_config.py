@@ -27,11 +27,24 @@ YOLO_TRIGGER_MODEL = "yolo11n.pt"   # Auto-downloads via ultralytics
 TRIGGER_ROI_Y_BAND = (0.0, 1.0)
 TRIGGER_ROI_X_CENTER_BAND = (0.0, 1.0)
 
-TRIGGER_CONFIDENCE_THRESHOLD = 0.30  # Raise to avoid empty-space false positives
-TRIGGER_MIN_BOX_AREA = 0.05          # Object must cover ≥5% of frame (filters tiny noise)
+TRIGGER_CONFIDENCE_THRESHOLD = 0.45  # Higher = fewer false positives on background clutter
+TRIGGER_MIN_BOX_AREA = 0.04          # Object must cover ≥4% of frame (filters tiny noise)
 TRIGGER_ENTER_FRAMES = 3             # Consecutive detections to confirm product entered
 TRIGGER_LEAVE_FRAMES = 8             # Consecutive empty frames to confirm product left
 TRIGGER_AUTO = True                  # True = YOLO fires automatically; False = manual SNAP only
+
+# COCO class IDs the trigger/display YOLO will respond to.
+# Excludes: person (0), vehicles (1-8), outdoor (9-13), animals (14-23),
+#           sports gear (29-38), furniture (56-62), large appliances (68-72).
+# Keeps anything that could be a packaged product on a conveyor belt.
+# Add or remove IDs here to tune what counts as a "product".
+TRIGGER_CLASSES = [
+    24, 26, 27, 28,                          # backpack, handbag, tie, suitcase
+    39, 40, 41, 42, 43, 44, 45,              # bottle, wine glass, cup, fork, knife, spoon, bowl
+    46, 47, 48, 49, 50, 51, 52, 53, 54, 55, # food items (banana → cake)
+    64, 65, 67,                              # mouse, remote, cell phone
+    73, 74, 75, 76, 77, 78, 79,             # book, clock, vase, scissors, teddy bear, hair drier, toothbrush
+]
 
 # ── Frame Buffer & Sync ────────────────────────────────────────────────────────
 FRAME_BUFFER_SIZE = 90              # Frames per camera buffer (3s at 30fps)

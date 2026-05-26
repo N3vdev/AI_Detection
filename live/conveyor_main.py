@@ -37,6 +37,7 @@ class ConveyorSystem:
             min_box_area=config.TRIGGER_MIN_BOX_AREA,
             enter_frames=config.TRIGGER_ENTER_FRAMES,
             leave_frames=config.TRIGGER_LEAVE_FRAMES,
+            classes=getattr(config, 'TRIGGER_CLASSES', None),
         )
         self._inspection_queue = queue.Queue(maxsize=config.INSPECTION_QUEUE_MAX)
         self._writer = ResultWriter(config.DB_PATH, config.JSON_LOG_PATH)

@@ -374,6 +374,7 @@ class ConveyorUIApp(QMainWindow):
             trigger=self._system._trigger,
             conf=config.TRIGGER_CONFIDENCE_THRESHOLD,
             min_box_area=config.TRIGGER_MIN_BOX_AREA,
+            classes=getattr(config, 'TRIGGER_CLASSES', None),
         )
         self._detector.start()
 

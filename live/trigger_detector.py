@@ -6,10 +6,11 @@ class TriggerDetector:
     def __init__(
         self,
         yolo_model_path="yolov8n.pt",
-        confidence_threshold=0.30,
-        min_box_area=0.05,    # object must cover at least 5% of frame to count
+        confidence_threshold=0.45,
+        min_box_area=0.04,
         enter_frames=3,
-        leave_frames=25,      # must be high enough that YOLO flicker can't accidentally reset
+        leave_frames=8,
+        classes=None,   # list of COCO class IDs to detect; None = all 80 classes
     ):
         print(f"[Trigger] Loading {yolo_model_path} on CPU...")
         self.model = YOLO(yolo_model_path)
@@ -20,6 +21,7 @@ class TriggerDetector:
         self.min_box_area = min_box_area
         self.enter_frames = enter_frames
         self.leave_frames = leave_frames
+        self.classes = classes
 
         self._product_in_frame = False
         self._presence_count = 0
@@ -60,7 +62,7 @@ class TriggerDetector:
     def _detect(self, frame):
         """Returns list of normalized [x1,y1,x2,y2] for boxes that pass the size filter."""
         small = cv2.resize(frame, (640, 640))
-        results = self.model(small, verbose=False, conf=self.conf)
+        results = self.model(small, verbose=False, conf=self.conf, classes=self.classes)
 
         valid = []
         for box in results[0].boxes:
