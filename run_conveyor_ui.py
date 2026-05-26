@@ -48,6 +48,7 @@ from live import conveyor_config as config
 from live.conveyor_main import ConveyorSystem
 from conveyor_ui.widgets import CameraWidget, ResultBar
 from conveyor_ui.camera_scanner import CameraScanner
+from conveyor_ui.multi_detector import MultiCameraDetector
 
 NUM_CAMS = 4
 
@@ -58,9 +59,10 @@ class FrameDispatcher(QThread):
     frame_ready = pyqtSignal(int, QImage)
     cam_status  = pyqtSignal(int, bool)
 
-    def __init__(self, buffers, parent=None):
+    def __init__(self, buffers, detector=None, parent=None):
         super().__init__(parent)
         self._buffers  = buffers
+        self._detector = detector   # MultiCameraDetector — provides boxes for all cams
         self._running  = True
         self._last_ok  = [False] * len(buffers)
 
@@ -74,11 +76,43 @@ class FrameDispatcher(QThread):
                     self._last_ok[i] = connected
                     self.cam_status.emit(i, connected)
                 if frame is not None:
-                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    display = frame.copy()
+                    if self._detector:
+                        boxes = self._detector.get_boxes(i)
+                        if boxes:
+                            display = self._draw_boxes(display, boxes)
+                    rgb = cv2.cvtColor(display, cv2.COLOR_BGR2RGB)
                     h, w, ch = rgb.shape
                     qimg = QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888).copy()
                     self.frame_ready.emit(i, qimg)
             time.sleep(0.10)
+
+    @staticmethod
+    def _draw_boxes(frame, boxes):
+        h, w = frame.shape[:2]
+        color = (0, 220, 80)   # green
+        for (x1n, y1n, x2n, y2n) in boxes:
+            x1, y1 = int(x1n * w), int(y1n * h)
+            x2, y2 = int(x2n * w), int(y2n * h)
+            # Main box (thin)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
+            # L-shaped corner accents
+            seg   = max(12, min(28, (x2 - x1) // 5))
+            thick = 3
+            for px, py, sx, sy in [
+                (x1, y1,  seg,  0), (x1, y1,  0,  seg),
+                (x2, y1, -seg,  0), (x2, y1,  0,  seg),
+                (x1, y2,  seg,  0), (x1, y2,  0, -seg),
+                (x2, y2, -seg,  0), (x2, y2,  0, -seg),
+            ]:
+                cv2.line(frame, (px, py), (px + sx, py + sy), color, thick)
+            # Small label pill
+            label = "PRODUCT"
+            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+            cv2.rectangle(frame, (x1, y1 - th - 8), (x1 + tw + 8, y1), color, -1)
+            cv2.putText(frame, label, (x1 + 4, y1 - 4),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 0, 0), 1, cv2.LINE_AA)
+        return frame
 
     def stop(self):
         self._running = False
@@ -107,6 +141,7 @@ class ConveyorUIApp(QMainWindow):
         self._max_products = max_products
         self._system       = None
         self._dispatcher   = None
+        self._detector     = None
         self._bridge       = EventBridge()
         self._session_running = False
         self._prefs        = _load_prefs()
@@ -292,7 +327,19 @@ class ConveyorUIApp(QMainWindow):
             )
             self._system.start(self._session_id)
 
-            self._dispatcher = FrameDispatcher(self._system._buffers)
+            # Start per-camera YOLO detection for display boxes
+            self._detector = MultiCameraDetector(
+                self._system._buffers,
+                model_path=config.YOLO_TRIGGER_MODEL,
+                conf=config.TRIGGER_CONFIDENCE_THRESHOLD,
+                min_box_area=config.TRIGGER_MIN_BOX_AREA,
+            )
+            self._detector.start()
+
+            self._dispatcher = FrameDispatcher(
+                self._system._buffers,
+                detector=self._detector,
+            )
             self._dispatcher.frame_ready.connect(self._on_frame)
             self._dispatcher.cam_status.connect(self._on_cam_status)
             self._dispatcher.start()
@@ -325,6 +372,8 @@ class ConveyorUIApp(QMainWindow):
     # ── Shutdown ──────────────────────────────────────────────────────────────
 
     def closeEvent(self, event):
+        if self._detector:
+            self._detector.stop()
         if self._dispatcher:
             self._dispatcher.stop()
         if self._system:
