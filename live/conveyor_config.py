@@ -31,6 +31,7 @@ TRIGGER_CONFIDENCE_THRESHOLD = 0.30  # Raise to avoid empty-space false positive
 TRIGGER_MIN_BOX_AREA = 0.05          # Object must cover ≥5% of frame (filters tiny noise)
 TRIGGER_ENTER_FRAMES = 3             # Consecutive detections to confirm product entered
 TRIGGER_LEAVE_FRAMES = 8             # Consecutive empty frames to confirm product left
+TRIGGER_AUTO = True                  # True = YOLO fires automatically; False = manual SNAP only
 
 # ── Frame Buffer & Sync ────────────────────────────────────────────────────────
 FRAME_BUFFER_SIZE = 90              # Frames per camera buffer (3s at 30fps)

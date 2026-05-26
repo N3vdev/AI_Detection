@@ -42,7 +42,7 @@ class ConveyorSystem:
         self._writer = ResultWriter(config.DB_PATH, config.JSON_LOG_PATH)
         self._worker = InspectionWorker(self._inspection_queue, self._writer, config,
                                         on_result=self._on_result)
-        self.auto_trigger = True   # set False to disable YOLO trigger; use manual_snap() instead
+        self.auto_trigger = getattr(config, 'TRIGGER_AUTO', True)
         self._seq = 0
 
     def start(self, session_id):

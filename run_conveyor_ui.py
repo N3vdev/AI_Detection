@@ -251,15 +251,6 @@ class ConveyorUIApp(QMainWindow):
         )
         self._btn_snap.clicked.connect(self._do_manual_snap)
 
-        # ── AUTO TRIGGER toggle ───────────────────────────────────────────────
-        self._btn_auto = QPushButton("AUTO  ON")
-        self._btn_auto.setFixedSize(96, 32)
-        self._btn_auto.setCheckable(True)
-        self._btn_auto.setChecked(True)
-        self._btn_auto.hide()
-        self._set_auto_style(True)
-        self._btn_auto.toggled.connect(self._on_auto_toggled)
-
         row = QHBoxLayout(header)
         row.setContentsMargins(16, 0, 16, 0)
         row.setSpacing(10)
@@ -268,7 +259,6 @@ class ConveyorUIApp(QMainWindow):
         row.addSpacing(8)
         row.addWidget(self._scan_status)
         row.addStretch()
-        row.addWidget(self._btn_auto)
         row.addWidget(self._btn_snap)
         row.addWidget(self._btn_start)
         row.addWidget(self._btn_stop)
@@ -398,28 +388,7 @@ class ConveyorUIApp(QMainWindow):
         for w in self._cam_widgets:
             w.on_session_start()
 
-        self._btn_auto.show()
         self._btn_snap.show()
-
-    def _set_auto_style(self, on: bool):
-        if on:
-            self._btn_auto.setStyleSheet(
-                "QPushButton { background: #14532d; color: #4ade80; border: 1px solid #166534; "
-                "border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }"
-                "QPushButton:hover { background: #166534; color: #86efac; }"
-            )
-        else:
-            self._btn_auto.setStyleSheet(
-                "QPushButton { background: #1a1a1a; color: #555; border: 1px solid #2a2a2a; "
-                "border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }"
-                "QPushButton:hover { background: #222; color: #888; }"
-            )
-
-    def _on_auto_toggled(self, checked: bool):
-        self._btn_auto.setText("AUTO  ON" if checked else "AUTO  OFF")
-        self._set_auto_style(checked)
-        if self._system:
-            self._system.auto_trigger = checked
 
     def _do_manual_snap(self):
         if not self._system or self._snap_cooldown:
