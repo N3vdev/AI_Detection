@@ -85,12 +85,21 @@ class ConveyorSystem:
         else:
             print("[Conveyor] Running — UI mode active.\n")
 
+        _YOLO_INTERVAL = 1.0 / 15   # cap trigger YOLO at 15 fps — saves ~60% CPU
+        _last_yolo = 0.0
+
         try:
             while seq < max_products:
                 frame = trigger_buf.get_closest(time.monotonic(), window_ms=100)
                 if frame is None:
                     time.sleep(0.005)
                     continue
+
+                now = time.monotonic()
+                if now - _last_yolo < _YOLO_INTERVAL:
+                    time.sleep(0.005)
+                    continue
+                _last_yolo = now
 
                 fired = self._trigger.process_frame(frame)
                 frame_count += 1

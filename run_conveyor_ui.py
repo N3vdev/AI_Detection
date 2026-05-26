@@ -327,10 +327,10 @@ class ConveyorUIApp(QMainWindow):
             )
             self._system.start(self._session_id)
 
-            # Start per-camera YOLO detection for display boxes
+            # Start per-camera YOLO detection for display boxes — reuses trigger's model
             self._detector = MultiCameraDetector(
                 self._system._buffers,
-                model_path=config.YOLO_TRIGGER_MODEL,
+                trigger=self._system._trigger,
                 conf=config.TRIGGER_CONFIDENCE_THRESHOLD,
                 min_box_area=config.TRIGGER_MIN_BOX_AREA,
             )

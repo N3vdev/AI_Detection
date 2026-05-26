@@ -1,43 +1,40 @@
 """
-Runs YOLO detection on all camera buffers at ~5fps.
-Completely independent of the trigger detector — this is purely for visualising
-detection boxes on all camera feeds. Loads its own model instance.
+Reuses the TriggerDetector's YOLO model to show detection boxes on all camera feeds.
+No second model load — just borrows the model with a lock.
+Processes all cameras sequentially at ~3fps per camera so total CPU impact is low.
 """
 import time
 import threading
 import cv2
-from ultralytics import YOLO
 from PyQt6.QtCore import QThread
 
 
 class MultiCameraDetector(QThread):
-    def __init__(self, buffers, model_path, conf=0.30, min_box_area=0.05, parent=None):
+    def __init__(self, buffers, trigger, conf=0.30, min_box_area=0.05, parent=None):
         super().__init__(parent)
         self._buffers      = buffers
-        self._model_path   = model_path
+        self._model        = trigger.model   # reuse already-loaded model
+        self._model_lock   = threading.Lock()
         self._conf         = conf
         self._min_box_area = min_box_area
         self._running      = True
-        self._model        = None
         self._lock         = threading.Lock()
-        # latest detected boxes per camera slot: list of [x1n, y1n, x2n, y2n]
-        self._boxes = [[] for _ in buffers]
+        self._boxes        = [[] for _ in buffers]
 
     def run(self):
-        print("[Detector] Loading YOLO for multi-camera display...")
-        self._model = YOLO(self._model_path)
-        self._model.to("cpu")
-        print("[Detector] Ready.")
-
         while self._running:
             now = time.monotonic()
             for i, buf in enumerate(self._buffers):
+                if not self._running:
+                    break
                 frame = buf.get_closest(now, window_ms=500)
                 if frame is not None:
                     boxes = self._detect(frame)
                     with self._lock:
                         self._boxes[i] = boxes
-            time.sleep(0.20)  # 5 fps — enough for smooth box display
+                time.sleep(0.05)  # small gap between cameras so we don't slam CPU
+
+            time.sleep(0.28)   # ~3 fps per camera (0.28 + n*0.05 per cycle)
 
     def get_boxes(self, cam_idx: int) -> list:
         with self._lock:
@@ -47,7 +44,8 @@ class MultiCameraDetector(QThread):
 
     def _detect(self, frame):
         small = cv2.resize(frame, (640, 640))
-        results = self._model(small, verbose=False, conf=self._conf)
+        with self._model_lock:
+            results = self._model(small, verbose=False, conf=self._conf, device='cpu')
         valid = []
         for box in results[0].boxes:
             x1, y1, x2, y2 = box.xyxy[0].numpy()
