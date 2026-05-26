@@ -1,14 +1,61 @@
-[Debug] Snapshots saved → debug_snapshots/20260524_180737_722/
-INFO:     2409:40c0:23:78c9:b14b:77af:47d8:3804:0 - "POST /inspect HTTP/1.1" 200 OK
-[Phase 1] Scanning 3 image(s) for barcode...
-[Phase 1] Barcode (direct): 8901262302067
-INFO:     2409:40c0:23:78c9:b14b:77af:47d8:3804:0 - "POST /inspect HTTP/1.1" 200 OK
-[Phase 1] Scanning 1 image(s) for barcode...
-[Phase 1] Barcode (direct): 8901262302067
-INFO:     2409:40c0:23:78c9:b14b:77af:47d8:3804:0 - "POST /inspect HTTP/1.1" 200 OK
-[Phase 1] Scanning 2 image(s) for barcode...
-WARNING: .\zbar\decoder\pdf417.c:89: <unknown>: Assertion "g[0] >= 0 && g[1] >= 0 && g[2] >= 0" failed.
-        dir=0 sig=1a8d3 k=0 g0=000 g1=ffffffff g2=949 buf[0000]=
-WARNING: .\zbar\decoder\pdf417.c:89: <unknown>: Assertion "g[0] >= 0 && g[1] >= 0 && g[2] >= 0" failed.
-        dir=1 sig=24d40 k=0 g0=eb3 g1=ffffffff g2=ffffffff buf[0000]=
-[Phase 1] No barcode — moving to Phase 2.
+oading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 824/824 [00:02<00:00, 300.26it/s]
+[System] Qwen/Qwen2.5-VL-3B-Instruct loaded.
+[System] Loading EasyOCR...
+[System] EasyOCR loaded.
+[System] Loading YOLO-World (yolov8m-worldv2.pt)...
+Downloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8m-worldv2.pt to 'yolov8m-worldv2.pt': 100% ━━━━━━━━━━━━ 54.6MB 9.2MB/s 5.9s
+[System] YOLO-World loaded.
+[System] Ready.
+
+[System] All models loaded. Ready to inspect.
+
+[Camera-0] Started.
+
+[Conveyor] Session : truck_2026-05-26_977f9b
+[Conveyor] Cameras : ['http://192.168.0.199:8080/video']
+[Conveyor] Max     : 100 products
+
+[Conveyor] Running — UI mode active.
+
+Ultralytics 8.4.52  Python-3.13.0 torch-2.12.0+cu126 CPU (12th Gen Intel Core i5-12400F)
+Traceback (most recent call last):
+  File "D:\Codes\AI Detection Model\conveyor_ui\multi_detector.py", line 32, in run
+    boxes = self._detect(frame)
+  File "D:\Codes\AI Detection Model\conveyor_ui\multi_detector.py", line 48, in _detect
+    results = self._model(small, verbose=False, conf=self._conf, device='cpu')
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\engine\model.py", line 177, in __call__
+    return self.predict(source, stream, **kwargs)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\engine\model.py", line 530, in predict
+    self.predictor.setup_model(model=self.model, verbose=is_cli)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\engine\predictor.py", line 401, in setup_model
+    self.model = AutoBackend(
+                 ~~~~~~~~~~~^
+        model=model or self.args.model,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+        verbose=verbose,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\autobackend.py", line 217, in __init__
+    self.backend = self._BACKEND_MAP[format](model, **backend_kwargs)
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\backends\pytorch.py", line 42, in __init__
+    super().__init__(weight, device, fp16)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\backends\base.py", line 54, in __init__
+    self.load_model(weight)
+    ~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\backends\pytorch.py", line 56, in load_model
+    weight = weight.fuse(verbose=self.verbose)
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\tasks.py", line 241, in fuse
+    delattr(m, "bn")  # remove batchnorm
+    ~~~~~~~^^^^^^^^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\torch\nn\modules\module.py", line 2085, in __delattr__
+    super().__delattr__(name)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^
+AttributeError: 'Conv' object has no attribute 'bn'
