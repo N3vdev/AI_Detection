@@ -39,7 +39,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QLabel, QPushButton,
     QGridLayout, QHBoxLayout, QVBoxLayout, QSizePolicy,
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal, QObject
 from PyQt6.QtGui import QImage, QPixmap, QPalette, QColor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -149,6 +149,7 @@ class ConveyorUIApp(QMainWindow):
         self._bridge       = EventBridge()
         self._session_running = False
         self._prefs        = _load_prefs()
+        self._snap_cooldown = False
 
         self.setWindowTitle("AI Product Inspector — Conveyor")
         self.setMinimumSize(1100, 740)
@@ -238,14 +239,37 @@ class ConveyorUIApp(QMainWindow):
         )
         self._btn_stop.clicked.connect(self.close)
 
+        # ── SNAP button ───────────────────────────────────────────────────────
+        self._btn_snap = QPushButton("SNAP")
+        self._btn_snap.setFixedSize(72, 32)
+        self._btn_snap.hide()
+        self._btn_snap.setStyleSheet(
+            "QPushButton { background: #1e3a5f; color: #60a5fa; border: 1px solid #2563eb; "
+            "border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }"
+            "QPushButton:hover { background: #2563eb; color: #bfdbfe; }"
+            "QPushButton:disabled { background: #1a1a1a; color: #333; border-color: #222; }"
+        )
+        self._btn_snap.clicked.connect(self._do_manual_snap)
+
+        # ── AUTO TRIGGER toggle ───────────────────────────────────────────────
+        self._btn_auto = QPushButton("AUTO  ON")
+        self._btn_auto.setFixedSize(96, 32)
+        self._btn_auto.setCheckable(True)
+        self._btn_auto.setChecked(True)
+        self._btn_auto.hide()
+        self._set_auto_style(True)
+        self._btn_auto.toggled.connect(self._on_auto_toggled)
+
         row = QHBoxLayout(header)
         row.setContentsMargins(16, 0, 16, 0)
-        row.setSpacing(14)
+        row.setSpacing(10)
         row.addWidget(title)
         row.addWidget(self._session_lbl)
         row.addSpacing(8)
         row.addWidget(self._scan_status)
         row.addStretch()
+        row.addWidget(self._btn_auto)
+        row.addWidget(self._btn_snap)
         row.addWidget(self._btn_start)
         row.addWidget(self._btn_stop)
 
@@ -373,6 +397,45 @@ class ConveyorUIApp(QMainWindow):
 
         for w in self._cam_widgets:
             w.on_session_start()
+
+        self._btn_auto.show()
+        self._btn_snap.show()
+
+    def _set_auto_style(self, on: bool):
+        if on:
+            self._btn_auto.setStyleSheet(
+                "QPushButton { background: #14532d; color: #4ade80; border: 1px solid #166534; "
+                "border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }"
+                "QPushButton:hover { background: #166534; color: #86efac; }"
+            )
+        else:
+            self._btn_auto.setStyleSheet(
+                "QPushButton { background: #1a1a1a; color: #555; border: 1px solid #2a2a2a; "
+                "border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }"
+                "QPushButton:hover { background: #222; color: #888; }"
+            )
+
+    def _on_auto_toggled(self, checked: bool):
+        self._btn_auto.setText("AUTO  ON" if checked else "AUTO  OFF")
+        self._set_auto_style(checked)
+        if self._system:
+            self._system.auto_trigger = checked
+
+    def _do_manual_snap(self):
+        if not self._system or self._snap_cooldown:
+            return
+        ok = self._system.manual_snap()
+        if ok:
+            self._snap_cooldown = True
+            self._btn_snap.setEnabled(False)
+            for w in self._cam_widgets:
+                w.flash_trigger()
+                w.show_scanning()
+            QTimer.singleShot(1200, self._snap_ready)
+
+    def _snap_ready(self):
+        self._snap_cooldown = False
+        self._btn_snap.setEnabled(True)
 
     def _on_trigger(self, cam_idx: int):
         if cam_idx < len(self._cam_widgets):

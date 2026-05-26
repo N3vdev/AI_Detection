@@ -42,6 +42,8 @@ class ConveyorSystem:
         self._writer = ResultWriter(config.DB_PATH, config.JSON_LOG_PATH)
         self._worker = InspectionWorker(self._inspection_queue, self._writer, config,
                                         on_result=self._on_result)
+        self.auto_trigger = True   # set False to disable YOLO trigger; use manual_snap() instead
+        self._seq = 0
 
     def start(self, session_id):
         self._session_id = session_id
@@ -71,7 +73,6 @@ class ConveyorSystem:
 
         trigger_buf = self._buffers[config.TRIGGER_CAMERA_INDEX]
 
-        seq = 0
         frame_count = 0
         last_fired_ts = 0
 
@@ -89,7 +90,7 @@ class ConveyorSystem:
         _last_yolo = 0.0
 
         try:
-            while seq < max_products:
+            while self._seq < max_products:
                 frame = trigger_buf.get_closest(time.monotonic(), window_ms=100)
                 if frame is None:
                     time.sleep(0.005)
@@ -101,13 +102,18 @@ class ConveyorSystem:
                     continue
                 _last_yolo = now
 
-                fired = self._trigger.process_frame(frame)
+                if self.auto_trigger:
+                    fired = self._trigger.process_frame(frame)
+                else:
+                    self._trigger.last_boxes = []
+                    fired = False
                 frame_count += 1
 
                 if fired:
                     trigger_ts = time.monotonic()
                     last_fired_ts = trigger_ts
-                    seq += 1
+                    self._seq += 1
+                    seq = self._seq
                     frames = self._assembler.collect_snapshot(trigger_ts)
                     task = InspectionTask(
                         frames=frames,
@@ -150,7 +156,7 @@ class ConveyorSystem:
                         else:
                             status, s_color = "READY", (200, 200, 200)
 
-                        cv2.putText(preview, f"#{seq}  Q:{self._inspection_queue.qsize()}",
+                        cv2.putText(preview, f"#{self._seq}  Q:{self._inspection_queue.qsize()}",
                                     (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                         cv2.putText(preview, status,
                                     (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, s_color, 2)
@@ -172,8 +178,29 @@ class ConveyorSystem:
 
         if self._on_trigger is None:
             cv2.destroyAllWindows()
-        print(f"\n[Conveyor] Session complete — {seq} products captured.")
+        print(f"\n[Conveyor] Session complete — {self._seq} products captured.")
         self._print_summary()
+
+    def manual_snap(self):
+        """Capture frames from all cameras right now and queue for inspection. Thread-safe."""
+        self._seq += 1
+        seq = self._seq
+        trigger_ts = time.monotonic()
+        frames = self._assembler.collect_snapshot(trigger_ts)
+        task = InspectionTask(
+            frames=frames,
+            trigger_ts=trigger_ts,
+            session_id=self._session_id,
+            seq_number=seq,
+        )
+        try:
+            self._inspection_queue.put_nowait(task)
+            print(f"[Conveyor] ► Manual snap #{seq} — queued for inspection")
+            return True
+        except queue.Full:
+            print(f"[Conveyor] WARNING: Queue full — manual snap #{seq} skipped.")
+            self._seq -= 1
+            return False
 
     def stop(self):
         for cam in self._cameras:

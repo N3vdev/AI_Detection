@@ -60,7 +60,7 @@ class TriggerDetector:
     def _detect(self, frame):
         """Returns list of normalized [x1,y1,x2,y2] for boxes that pass the size filter."""
         small = cv2.resize(frame, (640, 640))
-        results = self.model(small, verbose=False, conf=self.conf, device='cpu')
+        results = self.model(small, verbose=False, conf=self.conf)
 
         valid = []
         for box in results[0].boxes:
