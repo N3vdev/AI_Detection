@@ -45,7 +45,7 @@ class MultiCameraDetector(QThread):
     def _detect(self, frame):
         small = cv2.resize(frame, (640, 640))
         with self._model_lock:
-            results = self._model(small, verbose=False, conf=self._conf, device='cpu')
+            results = self._model(small, verbose=False, conf=self._conf)
         valid = []
         for box in results[0].boxes:
             x1, y1, x2, y2 = box.xyxy[0].numpy()
