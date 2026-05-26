@@ -9,7 +9,7 @@ class TriggerDetector:
         confidence_threshold=0.30,
         min_box_area=0.05,    # object must cover at least 5% of frame to count
         enter_frames=3,
-        leave_frames=8,
+        leave_frames=25,      # must be high enough that YOLO flicker can't accidentally reset
     ):
         print(f"[Trigger] Loading {yolo_model_path} on CPU...")
         self.model = YOLO(yolo_model_path)

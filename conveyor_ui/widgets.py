@@ -173,12 +173,7 @@ class CameraWidget(QFrame):
     def set_frame(self, qimage: QImage):
         self._feed.show()
         self._placeholder.hide()
-        pixmap = QPixmap.fromImage(qimage).scaled(
-            self._feed.width(), self._feed.height(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        self._feed.setPixmap(pixmap)
+        self._feed.setPixmap(self._cover_pixmap(QPixmap.fromImage(qimage)))
 
     def set_disconnected(self):
         self._set_dot(False)
@@ -214,12 +209,18 @@ class CameraWidget(QFrame):
         rgb = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
         h, w, ch = rgb.shape
         qimg = QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888).copy()
-        pixmap = QPixmap.fromImage(qimg).scaled(
-            self._feed.width(), self._feed.height(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        self._feed.setPixmap(pixmap)
+        self._feed.setPixmap(self._cover_pixmap(QPixmap.fromImage(qimg)))
+
+    def _cover_pixmap(self, pixmap: QPixmap) -> QPixmap:
+        tw, th = self._feed.width(), self._feed.height()
+        if tw <= 0 or th <= 0:
+            return pixmap
+        scaled = pixmap.scaled(tw, th,
+                               Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                               Qt.TransformationMode.SmoothTransformation)
+        x = (scaled.width()  - tw) // 2
+        y = (scaled.height() - th) // 2
+        return scaled.copy(x, y, tw, th)
 
     def _set_dot(self, live: bool):
         self._dot.setStyleSheet(
