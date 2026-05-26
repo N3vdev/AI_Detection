@@ -35,5 +35,13 @@ pyzbar
 # EasyOCR — PyTorch-based, works on Python 3.13 + Windows, no extra framework
 easyocr
 
+# ── Conveyor UI ───────────────────────────────────────────────────────────────
+PyQt6
+
+# ── Web Demo ──────────────────────────────────────────────────────────────────
+fastapi
+uvicorn[standard]
+python-multipart
+
 # ── Utilities ─────────────────────────────────────────────────────────────────
 pyyaml

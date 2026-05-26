@@ -13,7 +13,9 @@ from live.trigger_detector import TriggerDetector
 
 
 class ConveyorSystem:
-    def __init__(self):
+    def __init__(self, on_trigger=None, on_result=None):
+        self._on_trigger = on_trigger  # callable(cam_idx) — fired when product detected
+        self._on_result  = on_result   # callable(result_dict) — fired after inspection
         self._buffers = [
             FrameSyncBuffer(maxlen=config.FRAME_BUFFER_SIZE)
             for _ in config.CAMERA_INDICES
@@ -37,7 +39,8 @@ class ConveyorSystem:
         )
         self._inspection_queue = queue.Queue(maxsize=config.INSPECTION_QUEUE_MAX)
         self._writer = ResultWriter(config.DB_PATH, config.JSON_LOG_PATH)
-        self._worker = InspectionWorker(self._inspection_queue, self._writer, config)
+        self._worker = InspectionWorker(self._inspection_queue, self._writer, config,
+                                        on_result=self._on_result)
 
     def start(self, session_id):
         self._session_id = session_id
@@ -73,11 +76,13 @@ class ConveyorSystem:
 
         pw = getattr(config, 'PREVIEW_WIDTH', 360)
         ph = getattr(config, 'PREVIEW_HEIGHT', 640)
-        cv2.namedWindow("Conveyor Inspection", cv2.WINDOW_NORMAL)
-        cv2.resizeWindow("Conveyor Inspection", pw, ph)
-
-        print("[Conveyor] Running — place products in the camera view.")
-        print("[Conveyor] Press Q in preview window or Ctrl+C to stop.\n")
+        if self._on_trigger is None:
+            cv2.namedWindow("Conveyor Inspection", cv2.WINDOW_NORMAL)
+            cv2.resizeWindow("Conveyor Inspection", pw, ph)
+            print("[Conveyor] Running — place products in the camera view.")
+            print("[Conveyor] Press Q in preview window or Ctrl+C to stop.\n")
+        else:
+            print("[Conveyor] Running — UI mode active.\n")
 
         try:
             while seq < max_products:
@@ -105,60 +110,58 @@ class ConveyorSystem:
                         print(f"[Conveyor] ► Product #{seq} detected — queued for inspection")
                     except queue.Full:
                         print(f"[Conveyor] WARNING: Queue full — product #{seq} skipped.")
+                    if self._on_trigger:
+                        self._on_trigger(config.TRIGGER_CAMERA_INDEX)
 
-                # ── Preview window ──────────────────────────────────────────
-                try:
-                    preview = cv2.resize(frame, (pw, ph))
-                    flashing = (time.monotonic() - last_fired_ts) < 0.5
+                # ── Preview window (skipped when UI callbacks are registered) ──
+                if self._on_trigger is None:
+                    try:
+                        preview = cv2.resize(frame, (pw, ph))
+                        flashing = (time.monotonic() - last_fired_ts) < 0.5
 
-                    # Draw bounding boxes from YOLO
-                    for (x1n, y1n, x2n, y2n) in self._trigger.last_boxes:
-                        bx1 = int(x1n * pw)
-                        by1 = int(y1n * ph)
-                        bx2 = int(x2n * pw)
-                        by2 = int(y2n * ph)
-                        box_color = (0, 255, 0) if flashing else (0, 200, 255)
-                        cv2.rectangle(preview, (bx1, by1), (bx2, by2), box_color, 2)
-                        label = "SCANNING..." if flashing else "PRODUCT"
-                        cv2.putText(preview, label, (bx1, max(by1 - 8, 14)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, box_color, 2)
+                        for (x1n, y1n, x2n, y2n) in self._trigger.last_boxes:
+                            bx1 = int(x1n * pw)
+                            by1 = int(y1n * ph)
+                            bx2 = int(x2n * pw)
+                            by2 = int(y2n * ph)
+                            box_color = (0, 255, 0) if flashing else (0, 200, 255)
+                            cv2.rectangle(preview, (bx1, by1), (bx2, by2), box_color, 2)
+                            label = "SCANNING..." if flashing else "PRODUCT"
+                            cv2.putText(preview, label, (bx1, max(by1 - 8, 14)),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, box_color, 2)
 
-                    # Flash border on trigger
-                    if flashing:
-                        cv2.rectangle(preview, (0, 0), (pw - 1, ph - 1), (0, 255, 0), 4)
+                        if flashing:
+                            cv2.rectangle(preview, (0, 0), (pw - 1, ph - 1), (0, 255, 0), 4)
 
-                    # Status overlay
-                    if flashing:
-                        status = "SCANNING"
-                        s_color = (0, 255, 0)
-                    elif self._trigger.product_in_frame:
-                        status = "IN FRAME"
-                        s_color = (0, 200, 255)
-                    else:
-                        status = "READY"
-                        s_color = (200, 200, 200)
+                        if flashing:
+                            status, s_color = "SCANNING", (0, 255, 0)
+                        elif self._trigger.product_in_frame:
+                            status, s_color = "IN FRAME", (0, 200, 255)
+                        else:
+                            status, s_color = "READY", (200, 200, 200)
 
-                    cv2.putText(preview, f"#{seq}  Q:{self._inspection_queue.qsize()}",
-                                (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-                    cv2.putText(preview, status,
-                                (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, s_color, 2)
-                    cv2.putText(preview, "Q = quit",
-                                (8, ph - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (140, 140, 140), 1)
+                        cv2.putText(preview, f"#{seq}  Q:{self._inspection_queue.qsize()}",
+                                    (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                        cv2.putText(preview, status,
+                                    (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, s_color, 2)
+                        cv2.putText(preview, "Q = quit",
+                                    (8, ph - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (140, 140, 140), 1)
 
-                    cv2.imshow("Conveyor Inspection", preview)
-                    key = cv2.waitKey(1) & 0xFF
-                    if key == ord('q'):
-                        print("\n[Conveyor] Quit by user.")
-                        break
-                except cv2.error:
-                    pass  # headless fallback
+                        cv2.imshow("Conveyor Inspection", preview)
+                        key = cv2.waitKey(1) & 0xFF
+                        if key == ord('q'):
+                            print("\n[Conveyor] Quit by user.")
+                            break
+                    except cv2.error:
+                        pass  # headless fallback
 
                 time.sleep(0.005)
 
         except KeyboardInterrupt:
             print("\n[Conveyor] Interrupted.")
 
-        cv2.destroyAllWindows()
+        if self._on_trigger is None:
+            cv2.destroyAllWindows()
         print(f"\n[Conveyor] Session complete — {seq} products captured.")
         self._print_summary()
 

@@ -18,11 +18,12 @@ class InspectionTask:
 
 
 class InspectionWorker(threading.Thread):
-    def __init__(self, queue, result_writer, config):
+    def __init__(self, queue, result_writer, config, on_result=None):
         super().__init__(daemon=True, name="InspectionWorker")
         self.queue = queue
         self.result_writer = result_writer
         self.config = config
+        self._on_result = on_result  # callable(result_dict) — called after every write
         self._stop_event = threading.Event()
         self._ready_event = threading.Event()
         self._ai = None
@@ -89,7 +90,7 @@ class InspectionWorker(threading.Thread):
             for i, frame in valid_frames:
                 cv2.imwrite(os.path.join(snapshot_dir, f"cam{i}.jpg"), frame,
                             [cv2.IMWRITE_JPEG_QUALITY, self.config.SNAPSHOT_JPEG_QUALITY])
-            self.result_writer.write({
+            fast_result = {
                 "product_id":    task.product_id,
                 "session_id":    task.session_id,
                 "seq_number":    task.seq_number,
@@ -101,7 +102,10 @@ class InspectionWorker(threading.Thread):
                 "snapshot_cam1": _snap(snapshot_dir, 1, task.frames),
                 "snapshot_cam2": _snap(snapshot_dir, 2, task.frames),
                 "snapshot_cam3": _snap(snapshot_dir, 3, task.frames),
-            })
+            }
+            self.result_writer.write(fast_result)
+            if self._on_result:
+                self._on_result(fast_result)
             return
 
         # ── Full pipeline: save frames to disk then run OCR + Qwen ────────────────
@@ -130,6 +134,8 @@ class InspectionWorker(threading.Thread):
         })
 
         self.result_writer.write(result)
+        if self._on_result:
+            self._on_result(result)
 
         if result.get("barcode"):
             print(f"[Worker] #{task.seq_number} BARCODE: {result['barcode']} ({processing_ms}ms)")
