@@ -13,17 +13,18 @@ from live.trigger_detector import TriggerDetector
 
 
 class ConveyorSystem:
-    def __init__(self, on_trigger=None, on_result=None):
+    def __init__(self, camera_indices=None, on_trigger=None, on_result=None):
         self._on_trigger = on_trigger  # callable(cam_idx) — fired when product detected
         self._on_result  = on_result   # callable(result_dict) — fired after inspection
+        sources = camera_indices if camera_indices is not None else config.CAMERA_INDICES
         self._buffers = [
             FrameSyncBuffer(maxlen=config.FRAME_BUFFER_SIZE)
-            for _ in config.CAMERA_INDICES
+            for _ in sources
         ]
         self._cameras = [
             CameraThread(idx, config.CAMERA_RESOLUTION, config.CAMERA_FPS, buf,
                          rotate=getattr(config, 'CAMERA_ROTATE', None))
-            for idx, buf in zip(config.CAMERA_INDICES, self._buffers)
+            for idx, buf in zip(sources, self._buffers)
         ]
         self._assembler = FrameAssembler(
             self._buffers,
