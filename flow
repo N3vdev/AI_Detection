@@ -1,9 +1,9 @@
-oading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 824/824 [00:02<00:00, 300.26it/s]
+ading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 824/824 [00:03<00:00, 260.39it/s]
 [System] Qwen/Qwen2.5-VL-3B-Instruct loaded.
 [System] Loading EasyOCR...
 [System] EasyOCR loaded.
 [System] Loading YOLO-World (yolov8m-worldv2.pt)...
-Downloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8m-worldv2.pt to 'yolov8m-worldv2.pt': 100% ━━━━━━━━━━━━ 54.6MB 9.2MB/s 5.9s
+Downloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8m-worldv2.pt to 'yolov8m-worldv2.pt': 100% ━━━━━━━━━━━━ 54.6MB 9.0MB/s 6.1s
 [System] YOLO-World loaded.
 [System] Ready.
 
@@ -11,18 +11,29 @@ Downloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov
 
 [Camera-0] Started.
 
-[Conveyor] Session : truck_2026-05-26_977f9b
+[Conveyor] Session : truck_2026-05-26_7b4f21
 [Conveyor] Cameras : ['http://192.168.0.199:8080/video']
 [Conveyor] Max     : 100 products
 
 [Conveyor] Running — UI mode active.
 
-Ultralytics 8.4.52  Python-3.13.0 torch-2.12.0+cu126 CPU (12th Gen Intel Core i5-12400F)
+Exception in thread ConveyorSession:
 Traceback (most recent call last):
-  File "D:\Codes\AI Detection Model\conveyor_ui\multi_detector.py", line 32, in run
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1041, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 992, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Codes\AI Detection Model\run_conveyor_ui.py", line 340, in run
+    self._system.run_session(self._max_products)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "D:\Codes\AI Detection Model\live\conveyor_main.py", line 104, in run_session
+    fired = self._trigger.process_frame(frame)
+  File "D:\Codes\AI Detection Model\live\trigger_detector.py", line 31, in process_frame
     boxes = self._detect(frame)
-  File "D:\Codes\AI Detection Model\conveyor_ui\multi_detector.py", line 48, in _detect
-    results = self._model(small, verbose=False, conf=self._conf, device='cpu')
+  File "D:\Codes\AI Detection Model\live\trigger_detector.py", line 63, in _detect
+    results = self.model(small, verbose=False, conf=self.conf, device='cpu')
   File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\engine\model.py", line 177, in __call__
     return self.predict(source, stream, **kwargs)
            ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -59,3 +70,4 @@ Traceback (most recent call last):
     super().__delattr__(name)
     ~~~~~~~~~~~~~~~~~~~^^^^^^
 AttributeError: 'Conv' object has no attribute 'bn'
+[Camera-0] Reconnecting...
