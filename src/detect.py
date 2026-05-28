@@ -387,13 +387,88 @@ class AIInspectionSystem:
 
     # ── CRNN dotted/inkjet text reader ────────────────────────────────────────
 
+    def _detect_inkjet_crops(self, img_bgr):
+        """
+        Find inkjet/dot-matrix text line regions using morphological analysis.
+        Works entirely independently of EasyOCR — detects disconnected dot patterns
+        that CRAFT's gradient detector ignores completely.
+        Returns list of BGR crops, one per candidate text line.
+        """
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY) if len(img_bgr.shape) == 3 else img_bgr.copy()
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+
+        img_h, img_w = img_bgr.shape[:2]
+        crops = []
+        seen = []  # (x1,y1,x2,y2) — avoid returning duplicate / heavily overlapping regions
+
+        # Try both polarities: dark dots on light background AND light dots on dark background
+        for src in (gray, cv2.bitwise_not(gray)):
+            # Multi-scale closing: inkjet dot size varies (1–4 px each), try 3 kernel widths
+            for kw in (3, 5, 7):
+                # Horizontal close merges dots in the same character row
+                kh = cv2.getStructuringElement(cv2.MORPH_RECT, (kw, 1))
+                kv = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 2))
+                merged = cv2.morphologyEx(src, cv2.MORPH_CLOSE, kh)
+                merged = cv2.morphologyEx(merged, cv2.MORPH_CLOSE, kv)
+
+                _, binary = cv2.threshold(merged, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+                # Dilate horizontally to link adjacent characters into single word/line blobs
+                kern_link = cv2.getStructuringElement(cv2.MORPH_RECT, (kw * 3, 1))
+                linked = cv2.dilate(binary, kern_link)
+
+                n, _, stats, _ = cv2.connectedComponentsWithStats(linked, connectivity=8)
+
+                for i in range(1, n):
+                    x  = stats[i, cv2.CC_STAT_LEFT]
+                    y  = stats[i, cv2.CC_STAT_TOP]
+                    w  = stats[i, cv2.CC_STAT_WIDTH]
+                    h  = stats[i, cv2.CC_STAT_HEIGHT]
+                    ar = stats[i, cv2.CC_STAT_AREA]
+
+                    # Text-line heuristics (must pass ALL):
+                    #  width  >= 40 px : at least ~3 characters wide
+                    #  height 8–60 px  : character height range for label text
+                    #  aspect >= 2.5   : horizontal strip (wider than tall)
+                    #  fill   >= 5%    : not a solid block — real text has gaps between dots
+                    if not (w >= 40 and 8 <= h <= 60 and w >= h * 2.5 and ar >= w * h * 0.05):
+                        continue
+
+                    x2, y2 = x + w, y + h
+                    # Deduplicate: skip if this region overlaps >40% with an already-kept one
+                    dup = False
+                    for sx1, sy1, sx2, sy2 in seen:
+                        ix = max(0, min(x2, sx2) - max(x, sx1))
+                        iy = max(0, min(y2, sy2) - max(y, sy1))
+                        if ix * iy > 0.4 * min(w * h, (sx2 - sx1) * (sy2 - sy1)):
+                            dup = True
+                            break
+                    if dup:
+                        continue
+
+                    seen.append((x, y, x2, y2))
+                    pad_y = max(4, int(h * 0.3))
+                    pad_x = max(8, int(w * 0.04))
+                    crop = img_bgr[
+                        max(0, y - pad_y):min(img_h, y2 + pad_y),
+                        max(0, x - pad_x):min(img_w, x2 + pad_x)
+                    ]
+                    if crop.size > 0:
+                        crops.append(crop)
+
+        return crops
+
     def _read_crnn(self, crops):
         """Decode dotted/inkjet text crops using the trained CRNN (CTC) model."""
         if not self.crnn_model or not crops:
             return []
+        _clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(4, 4))
         results = []
         for crop in crops:
             gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if len(crop.shape) == 3 else crop.copy()
+            # CLAHE before morphological processing — boosts faint dot contrast
+            gray = _clahe.apply(gray)
             # Morphological closing connects individual dots into letter strokes
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
             gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
@@ -765,6 +840,13 @@ class AIInspectionSystem:
                         crop = img_up[y1:y2, x1:x2]
                         if crop.size > 0 and (x2 - x1) >= 20 and (y2 - y1) >= 8:
                             crnn_crops.append(crop)
+
+                # Independent inkjet detector — morphological analysis finds dotted text
+                # regions that CRAFT never detects (no character-level gradients in dots).
+                inkjet_crops = self._detect_inkjet_crops(img_up)
+                if inkjet_crops:
+                    print(f"[Inkjet] {len(inkjet_crops)} candidate text region(s) → CRNN")
+                    crnn_crops.extend(inkjet_crops)
 
                 # Compute a tight crop around all detected text boxes for Qwen.
                 _raw = getattr(self, '_last_ocr_raw', [])

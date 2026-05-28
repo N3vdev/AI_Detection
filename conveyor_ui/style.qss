@@ -1,89 +1,107 @@
-/* ── Global ─────────────────────────────────────────────────────────────── */
+/* ── Global ──────────────────────────────────────────────────────────────────── */
 QMainWindow, QWidget {
-    background: #0d0d0d;
+    background: #090909;
     color: #d0d0d0;
-    font-family: "Segoe UI", "Inter", "SF Pro Display", sans-serif;
+    font-family: "Segoe UI Variable Text", "Segoe UI", "Inter", sans-serif;
 }
 
-/* ── Camera widget frame ───────────────────────────────────────────────── */
+/* ── Camera card ─────────────────────────────────────────────────────────────── */
 QFrame#cam_widget {
-    background: #111111;
+    background: #0d0d0d;
     border: 1px solid #1c1c1c;
-    border-radius: 8px;
+    border-radius: 10px;
 }
 QFrame#cam_widget:hover {
-    border-color: #252525;
+    border-color: #272727;
+    background: #0f0f0f;
 }
 
-/* ── Combo box ─────────────────────────────────────────────────────────── */
+/* ── Camera card header separator ─────────────────────────────────────────────── */
+QWidget#cam_header {
+    background: transparent;
+    border-bottom: 1px solid #141414;
+}
+
+/* ── Combo box ───────────────────────────────────────────────────────────────── */
 QComboBox {
-    background: #161616;
-    color: #555;
-    border: 1px solid #222;
+    background: #131313;
+    color: #363636;
+    border: 1px solid #1e1e1e;
     border-radius: 5px;
     padding: 3px 8px;
     font-size: 10px;
-    min-width: 120px;
-    max-width: 260px;
+    min-width: 100px;
+    max-width: 240px;
 }
 QComboBox:enabled {
-    color: #999;
-    border-color: #2a2a2a;
+    color: #757575;
+    border-color: #242424;
 }
 QComboBox:enabled:hover {
-    border-color: #333;
-    color: #ccc;
+    border-color: #303030;
+    color: #b0b0b0;
+    background: #161616;
 }
 QComboBox::drop-down {
     border: none;
-    width: 18px;
+    width: 20px;
 }
 QComboBox::down-arrow {
     image: none;
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
-    border-top: 5px solid #444;
-    margin-right: 4px;
+    border-top: 5px solid #2e2e2e;
+    margin-right: 5px;
+}
+QComboBox:enabled::down-arrow {
+    border-top-color: #525252;
 }
 QComboBox QAbstractItemView {
-    background: #1a1a1a;
-    color: #ccc;
+    background: #141414;
+    color: #c0c0c0;
     selection-background-color: #22c55e;
     selection-color: #000;
-    border: 1px solid #2e2e2e;
+    border: 1px solid #282828;
     outline: none;
     padding: 2px;
 }
 QComboBox QAbstractItemView::item {
-    padding: 5px 8px;
-    min-height: 22px;
+    padding: 6px 10px;
+    min-height: 26px;
 }
 
-/* ── Result bar ────────────────────────────────────────────────────────── */
+/* ── Result bar ──────────────────────────────────────────────────────────────── */
 #result_bar {
-    background: #0e0e0e;
-    border-top: 1px solid #1e1e1e;
+    background: #0b0b0b;
+    border-top: 1px solid #181818;
 }
 
-/* ── Scrollbar ─────────────────────────────────────────────────────────── */
+/* ── App header ──────────────────────────────────────────────────────────────── */
+#app_header {
+    background: #0d0d0d;
+    border-bottom: 1px solid #181818;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────── */
 QScrollBar:vertical {
-    background: #111;
-    width: 6px;
-    border-radius: 3px;
+    background: #0b0b0b;
+    width: 5px;
+    border-radius: 2px;
+    margin: 0;
 }
 QScrollBar::handle:vertical {
-    background: #2a2a2a;
-    border-radius: 3px;
-    min-height: 20px;
+    background: #222;
+    border-radius: 2px;
+    min-height: 24px;
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 
-/* ── Tooltip ───────────────────────────────────────────────────────────── */
+/* ── Tooltip ─────────────────────────────────────────────────────────────────── */
 QToolTip {
-    background: #1a1a1a;
-    color: #ccc;
-    border: 1px solid #333;
-    border-radius: 4px;
-    padding: 4px 8px;
+    background: #141414;
+    color: #cccccc;
+    border: 1px solid #2a2a2a;
+    border-radius: 5px;
+    padding: 5px 10px;
     font-size: 11px;
 }

@@ -17,15 +17,22 @@ class ConveyorSystem:
         self._on_trigger = on_trigger  # callable(cam_idx) — fired when product detected
         self._on_result  = on_result   # callable(result_dict) — fired after inspection
         sources = camera_indices if camera_indices is not None else config.CAMERA_INDICES
+        # One buffer per UI slot — None-source slots just stay empty.
+        # This preserves slot→buffer index mapping so cam 4 stays in widget 4.
         self._buffers = [
             FrameSyncBuffer(maxlen=config.FRAME_BUFFER_SIZE)
             for _ in sources
         ]
         self._cameras = [
-            CameraThread(idx, config.CAMERA_RESOLUTION, config.CAMERA_FPS, buf,
+            CameraThread(src, config.CAMERA_RESOLUTION, config.CAMERA_FPS, buf,
                          rotate=getattr(config, 'CAMERA_ROTATE', None))
-            for idx, buf in zip(sources, self._buffers)
+            for src, buf in zip(sources, self._buffers)
+            if src is not None
         ]
+        # Trigger buffer: use the configured slot if it's active, else the first active slot
+        _active = [i for i, s in enumerate(sources) if s is not None]
+        _trig_pref = config.TRIGGER_CAMERA_INDEX
+        self._trigger_slot = _trig_pref if _trig_pref in _active else (_active[0] if _active else 0)
         self._assembler = FrameAssembler(
             self._buffers,
             window_ms=config.FRAME_SYNC_WINDOW_MS,
@@ -72,7 +79,7 @@ class ConveyorSystem:
         if max_products is None:
             max_products = config.MAX_PRODUCTS
 
-        trigger_buf = self._buffers[config.TRIGGER_CAMERA_INDEX]
+        trigger_buf = self._buffers[self._trigger_slot]
 
         frame_count = 0
         last_fired_ts = 0

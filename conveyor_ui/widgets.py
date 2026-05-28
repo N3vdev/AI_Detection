@@ -11,12 +11,24 @@ CAM_LABELS = ["FRONT", "BACK", "LEFT", "RIGHT"]
 
 _SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-# ── Base style restored after flash ──────────────────────────────────────────
 _CAM_BASE_STYLE = (
-    "QFrame#cam_widget { background: #111111; border: 1px solid #1c1c1c; border-radius: 8px; }"
+    "QFrame#cam_widget {"
+    "  background: #0d0d0d;"
+    "  border: 1px solid #1c1c1c;"
+    "  border-radius: 10px;"
+    "}"
 )
 _CAM_FLASH_STYLE = (
-    "QFrame#cam_widget { background: #0a1a0a; border: 2px solid #22c55e; border-radius: 8px; }"
+    "QFrame#cam_widget {"
+    "  background: #050e07;"
+    "  border: 2px solid #22c55e;"
+    "  border-radius: 10px;"
+    "}"
+)
+_FEED_STYLE = (
+    "background: #080808;"
+    "border-bottom-left-radius: 9px;"
+    "border-bottom-right-radius: 9px;"
 )
 
 
@@ -35,14 +47,20 @@ class CameraWidget(QFrame):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setStyleSheet(_CAM_BASE_STYLE)
 
-        # ── Header row: dot + label + combo ───────────────────────────────────
+        # ── Header ────────────────────────────────────────────────────────────
         self._dot = QLabel("●")
-        self._dot.setFixedWidth(14)
-        self._dot.setStyleSheet("color: #2a2a2a; font-size: 13px; padding-top: 1px;")
+        self._dot.setFixedWidth(12)
+        self._dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._dot.setStyleSheet("color: #1c1c1c; font-size: 9px; padding-top: 1px;")
 
-        self._header = QLabel(f"CAM {cam_idx + 1}  —  {CAM_LABELS[cam_idx]}")
-        self._header.setStyleSheet(
-            "color: #555; font-size: 9px; font-weight: 700; letter-spacing: 1.5px;"
+        self._cam_num = QLabel(f"CAM {cam_idx + 1}")
+        self._cam_num.setStyleSheet(
+            "color: #2c2c2c; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;"
+        )
+
+        self._cam_label = QLabel(CAM_LABELS[cam_idx])
+        self._cam_label.setStyleSheet(
+            "color: #1a1a1a; font-size: 9px; letter-spacing: 2.5px; padding-left: 7px;"
         )
 
         self._combo = QComboBox()
@@ -51,59 +69,63 @@ class CameraWidget(QFrame):
         self._combo.currentIndexChanged.connect(self._on_combo_changed)
 
         header_row = QHBoxLayout()
-        header_row.setContentsMargins(10, 6, 8, 4)
-        header_row.setSpacing(6)
+        header_row.setContentsMargins(10, 8, 8, 8)
+        header_row.setSpacing(4)
         header_row.addWidget(self._dot)
-        header_row.addWidget(self._header)
+        header_row.addWidget(self._cam_num)
+        header_row.addWidget(self._cam_label)
         header_row.addStretch()
         header_row.addWidget(self._combo)
+
+        _header_w = QWidget()
+        _header_w.setObjectName("cam_header")
+        _header_w.setLayout(header_row)
+        _header_w.setStyleSheet(
+            "QWidget#cam_header { background: transparent; border-bottom: 1px solid #141414; }"
+        )
 
         # ── Feed / placeholder ────────────────────────────────────────────────
         self._feed = QLabel()
         self._feed.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._feed.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self._feed.setMinimumHeight(120)
-        self._feed.setStyleSheet("background: #0a0a0a; border-radius: 5px;")
+        self._feed.setStyleSheet(_FEED_STYLE)
 
-        self._placeholder = QLabel("NO CAMERA SELECTED")
+        self._placeholder = QLabel()
         self._placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._placeholder.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self._placeholder.setStyleSheet(
-            "color: #1e1e1e; font-size: 11px; font-weight: 600; letter-spacing: 2.5px;"
-        )
+        self._placeholder.setStyleSheet(_FEED_STYLE)
+        self._set_placeholder_text("NO INPUT")
 
-        # ── Layout ────────────────────────────────────────────────────────────
+        # ── Main layout ────────────────────────────────────────────────────────
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 0, 6, 6)
-        layout.setSpacing(4)
-        layout.addLayout(header_row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(_header_w)
         layout.addWidget(self._placeholder, stretch=1)
         layout.addWidget(self._feed, stretch=1)
-
         self._feed.hide()
 
-        # ── Floating overlays (not in layout — float over the feed area) ──────
+        # ── Floating overlays ─────────────────────────────────────────────────
         self._loading_overlay = QLabel(self)
         self._loading_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._loading_overlay.setStyleSheet("background: #0a0a0a; border-radius: 5px;")
+        self._loading_overlay.setStyleSheet(
+            "background: rgba(7, 7, 7, 248);"
+            "border-bottom-left-radius: 9px;"
+            "border-bottom-right-radius: 9px;"
+        )
         self._loading_overlay.hide()
 
         self._scanning_overlay = QLabel(self)
         self._scanning_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._scanning_overlay.setStyleSheet(
-            "background: rgba(0, 12, 0, 210); border: 1px solid #1a3d1a; "
-            "border-radius: 5px; color: #22c55e; font-size: 13px; "
-            "font-weight: 700; letter-spacing: 3px;"
-        )
         self._scanning_overlay.setText("SCANNING")
         self._scanning_overlay.hide()
+        self._scan_bright = True
 
         # ── Timers ────────────────────────────────────────────────────────────
         self._loading_step = 0
         self._loading_anim_timer = QTimer(self)
         self._loading_anim_timer.timeout.connect(self._tick_loading)
 
-        self._scan_step = 0
         self._scan_pulse_timer = QTimer(self)
         self._scan_pulse_timer.timeout.connect(self._tick_scan_pulse)
 
@@ -128,6 +150,15 @@ class CameraWidget(QFrame):
                 overlay.setGeometry(geo)
                 overlay.raise_()
 
+    def _set_placeholder_text(self, state="NO INPUT"):
+        icon = "⊘" if state == "NO SIGNAL" else "⊟"
+        self._placeholder.setText(
+            "<center>"
+            f"<p style='color:#191919; font-size:22px; margin:0 0 8px 0; line-height:1;'>{icon}</p>"
+            f"<p style='color:#1c1c1c; font-size:8px; letter-spacing:4px; font-weight:700; margin:0;'>{state}</p>"
+            "</center>"
+        )
+
     # ── Loading animation ─────────────────────────────────────────────────────
 
     def show_loading(self):
@@ -136,7 +167,7 @@ class CameraWidget(QFrame):
         self._reposition_overlays()
         self._loading_overlay.show()
         self._loading_overlay.raise_()
-        self._loading_anim_timer.start(100)
+        self._loading_anim_timer.start(90)
 
     def hide_loading(self):
         self._loading_anim_timer.stop()
@@ -149,17 +180,17 @@ class CameraWidget(QFrame):
     def _update_loading_text(self):
         spin = _SPIN[self._loading_step % len(_SPIN)]
         self._loading_overlay.setText(
-            f"<div style='text-align:center; line-height:2;'>"
-            f"<span style='color:#222; font-size:9px; letter-spacing:3px;'>AI MODELS</span><br>"
-            f"<span style='color:#22c55e; font-size:22px;'>{spin}</span>"
-            f"</div>"
+            "<div style='text-align:center; line-height:2.4;'>"
+            "<span style='color:#1e1e1e; font-size:8px; letter-spacing:4px;'>LOADING MODELS</span><br>"
+            f"<span style='color:#22c55e; font-size:18px;'>{spin}</span>"
+            "</div>"
         )
 
     # ── Dropdown population ───────────────────────────────────────────────────
 
     def populate_start(self):
         self._combo.clear()
-        self._combo.addItem("— Select camera —", None)
+        self._combo.addItem("— select camera —", None)
         self._combo.setEnabled(True)
 
     def add_camera_option(self, label: str, source):
@@ -175,8 +206,8 @@ class CameraWidget(QFrame):
                 self._combo.setCurrentIndex(i)
                 return
         label = (
-            f"USB Camera {source}  (index {source})" if isinstance(source, int)
-            else f"IP Camera  {source}  (offline?)"
+            f"USB {source}  (idx {source})" if isinstance(source, int)
+            else f"IP  {source}  (offline?)"
         )
         self._combo.addItem(f"{label}  ← last used", source)
         self._combo.setCurrentIndex(self._combo.count() - 1)
@@ -192,7 +223,7 @@ class CameraWidget(QFrame):
             self._start_preview(source)
         else:
             self._feed.hide()
-            self._placeholder.setText("NO CAMERA SELECTED")
+            self._set_placeholder_text("NO INPUT")
             self._placeholder.show()
             self._set_dot(False)
 
@@ -247,7 +278,7 @@ class CameraWidget(QFrame):
     def set_disconnected(self):
         self._set_dot(False)
         self._feed.hide()
-        self._placeholder.setText("NO SIGNAL")
+        self._set_placeholder_text("NO SIGNAL")
         self._placeholder.show()
         self.hide_scanning()
 
@@ -263,23 +294,33 @@ class CameraWidget(QFrame):
     # ── Scanning overlay ──────────────────────────────────────────────────────
 
     def show_scanning(self):
-        self._scan_step = 0
+        self._scan_bright = True
+        self._apply_scan_style()
         self._reposition_overlays()
         self._scanning_overlay.show()
         self._scanning_overlay.raise_()
-        self._scan_pulse_timer.start(600)
+        self._scan_pulse_timer.start(520)
 
     def hide_scanning(self):
         self._scan_pulse_timer.stop()
         self._scanning_overlay.hide()
 
     def _tick_scan_pulse(self):
-        self._scan_step = (self._scan_step + 1) % 2
-        colors = ("#22c55e", "#166534")
+        self._scan_bright = not self._scan_bright
+        self._apply_scan_style()
+
+    def _apply_scan_style(self):
+        if self._scan_bright:
+            color, border = "#22c55e", "#0e3318"
+        else:
+            color, border = "#166534", "#0a1e10"
         self._scanning_overlay.setStyleSheet(
-            f"background: rgba(0,12,0,210); border: 1px solid #1a3d1a; "
-            f"border-radius: 5px; color: {colors[self._scan_step]}; "
-            f"font-size: 13px; font-weight: 700; letter-spacing: 3px;"
+            f"background: rgba(3, 9, 4, 222);"
+            f"border: 1px solid {border};"
+            "border-bottom-left-radius: 9px;"
+            "border-bottom-right-radius: 9px;"
+            f"color: {color};"
+            "font-size: 11px; font-weight: 700; letter-spacing: 5px;"
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────────
@@ -294,17 +335,32 @@ class CameraWidget(QFrame):
         tw, th = self._feed.width(), self._feed.height()
         if tw <= 0 or th <= 0:
             return pixmap
-        scaled = pixmap.scaled(tw, th,
-                               Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                               Qt.TransformationMode.SmoothTransformation)
+        scaled = pixmap.scaled(
+            tw, th,
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.TransformationMode.SmoothTransformation,
+        )
         x = (scaled.width()  - tw) // 2
         y = (scaled.height() - th) // 2
         return scaled.copy(x, y, tw, th)
 
     def _set_dot(self, live: bool):
-        self._dot.setStyleSheet(
-            f"color: {'#22c55e' if live else '#2a2a2a'}; font-size: 13px; padding-top: 1px;"
-        )
+        if live:
+            self._dot.setStyleSheet("color: #22c55e; font-size: 9px; padding-top: 1px;")
+            self._cam_num.setStyleSheet(
+                "color: #6e6e6e; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;"
+            )
+            self._cam_label.setStyleSheet(
+                "color: #2e2e2e; font-size: 9px; letter-spacing: 2.5px; padding-left: 7px;"
+            )
+        else:
+            self._dot.setStyleSheet("color: #1c1c1c; font-size: 9px; padding-top: 1px;")
+            self._cam_num.setStyleSheet(
+                "color: #2c2c2c; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;"
+            )
+            self._cam_label.setStyleSheet(
+                "color: #1a1a1a; font-size: 9px; letter-spacing: 2.5px; padding-left: 7px;"
+            )
 
 
 # ── Result bar ────────────────────────────────────────────────────────────────
@@ -313,134 +369,176 @@ class ResultBar(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("result_bar")
-        self.setFixedHeight(72)
+        self.setFixedHeight(84)
 
-        # ── Row 1: sequence · brand · product ─────────────────────────────────
-        self._seq = QLabel("")
+        # Left accent bar — color tracks result type (green / blue / amber)
+        self._accent = QWidget()
+        self._accent.setFixedWidth(3)
+        self._accent.setFixedHeight(52)
+        self._accent.setStyleSheet("background: #1e1e1e; border-radius: 2px;")
+
+        # Sequence number
+        self._seq = QLabel()
+        self._seq.setFixedWidth(34)
+        self._seq.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._seq.setStyleSheet(
-            "color: #333; font-size: 10px; font-weight: 600; min-width: 28px;"
+            "color: #242424; font-size: 13px; font-weight: 700;"
+            "font-family: 'Consolas', 'Courier New', monospace;"
         )
 
-        self._brand = QLabel("")
+        # Brand name
+        self._brand = QLabel()
         self._brand.setStyleSheet(
-            "color: #22c55e; font-size: 14px; font-weight: 700; letter-spacing: 0.3px;"
+            "color: #22c55e; font-size: 15px; font-weight: 700; letter-spacing: 0.2px;"
         )
 
-        self._product = QLabel("")
-        self._product.setStyleSheet("color: #888; font-size: 12px;")
+        # Product description
+        self._product = QLabel()
+        self._product.setStyleSheet("color: #525252; font-size: 11px;")
         self._product.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        # Status badge pill
+        self._status = QLabel()
+        self._status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._status.setFixedHeight(20)
+        self._status.setStyleSheet(
+            "color: #22c55e; background: #061a0e; border: 1px solid #0d3d1a;"
+            "border-radius: 4px; font-size: 9px; font-weight: 700;"
+            "letter-spacing: 0.8px; padding: 0 8px;"
+        )
 
         row1 = QHBoxLayout()
         row1.setContentsMargins(0, 0, 0, 0)
-        row1.setSpacing(8)
+        row1.setSpacing(10)
         row1.addWidget(self._seq)
         row1.addWidget(self._brand)
         row1.addWidget(self._product, stretch=1)
+        row1.addWidget(self._status)
 
-        # ── Row 2: fields ──────────────────────────────────────────────────────
-        self._expiry = self._field_label("Exp: —")
-        self._mfg    = self._field_label("MFG: —")
-        self._batch  = self._field_label("Batch: —")
-        self._time   = self._field_label("—", dim=True)
+        # Field chips
+        self._expiry = self._make_chip()
+        self._mfg    = self._make_chip()
+        self._batch  = self._make_chip()
 
-        self._status = QLabel("—")
-        self._status.setStyleSheet(
-            "color: #22c55e; background: #0a1a0a; border: 1px solid #1a3d1a; "
-            "border-radius: 4px; font-size: 9px; font-weight: 700; "
-            "letter-spacing: 0.5px; padding: 1px 7px;"
+        self._time = QLabel()
+        self._time.setStyleSheet(
+            "color: #282828; font-size: 9px;"
+            "font-family: 'Consolas', 'Courier New', monospace;"
         )
 
         row2 = QHBoxLayout()
-        row2.setContentsMargins(0, 0, 0, 0)
-        row2.setSpacing(0)
-        for w in (self._expiry, self._mfg, self._batch):
-            row2.addWidget(w)
-        row2.addSpacing(10)
-        row2.addWidget(self._status)
-        row2.addSpacing(10)
-        row2.addWidget(self._time)
+        row2.setContentsMargins(44, 0, 0, 0)   # indent aligns under brand
+        row2.setSpacing(5)
+        row2.addWidget(self._expiry)
+        row2.addWidget(self._mfg)
+        row2.addWidget(self._batch)
         row2.addStretch()
+        row2.addWidget(self._time)
 
-        # ── Idle message ───────────────────────────────────────────────────────
-        self._idle = QLabel("WAITING FOR PRODUCT")
-        self._idle.setStyleSheet(
-            "color: #1e1e1e; font-size: 11px; font-weight: 600; letter-spacing: 2px;"
-        )
-        self._idle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        content_vbox = QVBoxLayout()
+        content_vbox.setContentsMargins(0, 0, 0, 0)
+        content_vbox.setSpacing(8)
+        content_vbox.addLayout(row1)
+        content_vbox.addLayout(row2)
 
-        # ── Content widget (hidden until first result) ─────────────────────────
         self._content = QWidget()
-        content_layout = QVBoxLayout(self._content)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        content_layout.setSpacing(4)
-        content_layout.addLayout(row1)
-        content_layout.addLayout(row2)
+        cl = QVBoxLayout(self._content)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.addLayout(content_vbox)
 
-        # ── Main layout ────────────────────────────────────────────────────────
+        self._idle = QLabel("WAITING FOR PRODUCT")
+        self._idle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._idle.setStyleSheet(
+            "color: #1c1c1c; font-size: 10px; font-weight: 600; letter-spacing: 3.5px;"
+        )
+
         main = QHBoxLayout(self)
-        main.setContentsMargins(18, 0, 18, 0)
+        main.setContentsMargins(14, 0, 18, 0)
         main.setSpacing(0)
+        main.addWidget(self._accent, alignment=Qt.AlignmentFlag.AlignVCenter)
+        main.addSpacing(16)
         main.addWidget(self._content, stretch=1)
         main.addWidget(self._idle, stretch=1)
 
         self._content.hide()
 
     @staticmethod
-    def _field_label(text, dim=False):
-        lbl = QLabel(text)
-        color = "#333" if dim else "#555"
-        lbl.setStyleSheet(
-            f"color: {color}; font-size: 10px; padding: 0 10px 0 0; "
+    def _make_chip() -> QLabel:
+        w = QLabel()
+        w.setStyleSheet(
+            "color: #2a2a2a; background: #0c0c0c; border: 1px solid #181818;"
+            "border-radius: 4px; font-size: 9px; padding: 2px 8px;"
         )
-        return lbl
+        return w
+
+    def _set_chip(self, chip: QLabel, label: str, value):
+        has_value = bool(value) and str(value) not in ('—', 'None')
+        if has_value:
+            chip.setText(
+                f"<span style='color:#363636;'>{label}:</span>"
+                f"<span style='color:#747474;'> {value}</span>"
+            )
+            chip.setStyleSheet(
+                "background: #111; border: 1px solid #1e1e1e;"
+                "border-radius: 4px; font-size: 9px; padding: 2px 8px;"
+            )
+        else:
+            chip.setText(
+                f"<span style='color:#222;'>{label}:</span>"
+                f"<span style='color:#222;'> —</span>"
+            )
+            chip.setStyleSheet(
+                "background: #0c0c0c; border: 1px solid #181818;"
+                "border-radius: 4px; font-size: 9px; padding: 2px 8px;"
+            )
 
     def update_result(self, result: dict):
-        seq    = result.get("seq_number", "")
-        brand  = result.get("brand") or result.get("barcode") or "—"
+        seq     = result.get("seq_number", "")
+        brand   = result.get("brand") or result.get("barcode") or "—"
         product = result.get("product_name") or ""
-        status = result.get("status", "—")
-        ms     = result.get("processing_ms")
+        status  = result.get("status", "—")
+        ms      = result.get("processing_ms")
 
-        self._seq.setText(f"#{seq}")
+        self._seq.setText(f"#{seq:02d}" if isinstance(seq, int) else f"#{seq}")
+
+        if len(product) > 55:
+            product = product[:53] + "…"
         self._brand.setText(brand)
-
-        # Truncate long product names
-        if len(product) > 60:
-            product = product[:58] + "…"
         self._product.setText(product)
 
-        self._expiry.setText(f"Exp: {result.get('expiry_date') or '—'}")
-        self._mfg.setText(f"MFG: {result.get('manufacture_date') or '—'}")
-        self._batch.setText(f"Batch: {result.get('batch_number') or '—'}")
-        self._time.setText(f"{ms/1000:.1f}s" if ms else "—")
+        self._set_chip(self._expiry, "Exp",   result.get("expiry_date"))
+        self._set_chip(self._mfg,    "MFG",   result.get("manufacture_date"))
+        self._set_chip(self._batch,  "Batch", result.get("batch_number"))
 
-        # Status badge color
+        self._time.setText(f"{ms/1000:.1f}s" if ms else "")
+
+        # Colors by result type
         if "Barcode" in status:
-            bg, border, fg = "#071e2e", "#0e3d5c", "#38bdf8"
+            fg, bg, bd = "#38bdf8", "#060f1a", "#0d2844"
         elif "Incomplete" in status or "Error" in status:
-            bg, border, fg = "#1f1200", "#3d2500", "#f59e0b"
+            fg, bg, bd = "#f59e0b", "#140900", "#3a2000"
         else:
-            bg, border, fg = "#071a0e", "#0f3d1e", "#22c55e"
+            fg, bg, bd = "#22c55e", "#061a0e", "#0e3d1a"
 
-        short_status = status.replace("Complete ", "").replace("(", "").replace(")", "").strip()
-        self._status.setText(short_status.upper())
+        short = (
+            status.replace("Complete ", "").replace("(", "").replace(")", "").strip().upper()
+        )
+        self._status.setText(short)
         self._status.setStyleSheet(
-            f"color: {fg}; background: {bg}; border: 1px solid {border}; "
-            "border-radius: 4px; font-size: 9px; font-weight: 700; "
-            "letter-spacing: 0.5px; padding: 1px 7px;"
+            f"color: {fg}; background: {bg}; border: 1px solid {bd};"
+            "border-radius: 4px; font-size: 9px; font-weight: 700;"
+            "letter-spacing: 0.8px; padding: 0 8px; min-height: 20px;"
         )
-
-        # Update brand color to match status
         self._brand.setStyleSheet(
-            f"color: {fg}; font-size: 14px; font-weight: 700; letter-spacing: 0.3px;"
+            f"color: {fg}; font-size: 15px; font-weight: 700; letter-spacing: 0.2px;"
         )
+        self._accent.setStyleSheet(f"background: {fg}; border-radius: 2px;")
 
-        # Show result, hide idle
         self._idle.hide()
         self._content.show()
 
-        # Brief flash: highlight background then fade back
-        self.setStyleSheet("#result_bar { background: #0d1a0d; border-top: 1px solid #1e3a1e; }")
-        QTimer.singleShot(350, lambda: self.setStyleSheet(
-            "#result_bar { background: #0e0e0e; border-top: 1px solid #1e1e1e; }"
+        # Brief background flash on new result
+        self.setStyleSheet(f"#result_bar {{ background: {bg}; border-top: 1px solid {bd}; }}")
+        QTimer.singleShot(380, lambda: self.setStyleSheet(
+            "#result_bar { background: #0b0b0b; border-top: 1px solid #181818; }"
         ))

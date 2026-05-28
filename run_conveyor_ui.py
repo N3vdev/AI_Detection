@@ -182,6 +182,7 @@ class ConveyorUIApp(QMainWindow):
 
         # Camera grid
         grid_w = QWidget()
+        grid_w.setStyleSheet("background: #090909;")
         grid = QGridLayout(grid_w)
         grid.setContentsMargins(10, 10, 10, 8)
         grid.setSpacing(8)
@@ -205,70 +206,100 @@ class ConveyorUIApp(QMainWindow):
     def _build_header(self):
         header = QWidget()
         header.setObjectName("app_header")
-        header.setFixedHeight(52)
+        header.setFixedHeight(56)
         header.setStyleSheet(
-            "#app_header { background: #111111; border-bottom: 1px solid #1a1a1a; }"
+            "#app_header { background: #0d0d0d; border-bottom: 1px solid #181818; }"
         )
 
-        title = QLabel("AI PRODUCT INSPECTOR")
+        # Small "AI" badge — accent pill on the far left
+        badge = QLabel("AI")
+        badge.setFixedSize(28, 22)
+        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        badge.setStyleSheet(
+            "color: #22c55e; background: #061a0e; border: 1px solid #0d3d1a;"
+            "border-radius: 4px; font-size: 10px; font-weight: 800; letter-spacing: 1px;"
+        )
+
+        title = QLabel("PRODUCT INSPECTOR")
         title.setStyleSheet(
-            "color: #c0c0c0; font-size: 13px; font-weight: 700; letter-spacing: 2px;"
+            "color: #484848; font-size: 11px; font-weight: 700; letter-spacing: 2.5px;"
         )
 
-        # Vertical divider
         div = QLabel("|")
-        div.setStyleSheet("color: #222; font-size: 18px; padding: 0 2px;")
+        div.setStyleSheet("color: #1c1c1c; font-size: 16px; padding: 0 4px;")
 
         self._session_lbl = QLabel(self._session_id)
         self._session_lbl.setStyleSheet(
-            "color: #333; font-size: 10px; font-family: 'Consolas', 'Courier New', monospace;"
+            "color: #282828; font-size: 9px; letter-spacing: 0.5px;"
+            "font-family: 'Consolas', 'Courier New', monospace;"
         )
 
         self._scan_status = QLabel("Scanning for cameras...")
-        self._scan_status.setStyleSheet("color: #444; font-size: 11px; font-style: italic;")
+        self._scan_status.setStyleSheet(
+            "color: #353535; font-size: 11px; font-style: italic;"
+        )
 
-        # Buttons
         _btn_h = 30
 
         self._btn_start = QPushButton("START SESSION")
-        self._btn_start.setFixedSize(126, _btn_h)
+        self._btn_start.setFixedSize(128, _btn_h)
         self._btn_start.setEnabled(False)
         self._btn_start.setStyleSheet(
-            f"QPushButton {{ background: #0f2d1a; color: #4ade80; border: 1px solid #1a4728; "
-            f"border-radius: 5px; font-size: 11px; font-weight: 700; letter-spacing: 1px; }}"
-            f"QPushButton:enabled:hover {{ background: #14532d; color: #86efac; }}"
-            f"QPushButton:disabled {{ background: #161616; color: #2a2a2a; border-color: #1e1e1e; }}"
+            "QPushButton {"
+            "  background: #061a0e; color: #22c55e; border: 1px solid #0d3d1a;"
+            "  border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: 1.2px;"
+            "}"
+            "QPushButton:enabled:hover {"
+            "  background: #0a2d15; color: #4ade80; border-color: #166534;"
+            "}"
+            "QPushButton:disabled {"
+            "  background: #0e0e0e; color: #202020; border-color: #181818;"
+            "}"
+            "QPushButton:pressed { background: #041208; }"
         )
         self._btn_start.clicked.connect(self._start_session)
 
         self._btn_stop = QPushButton("STOP")
-        self._btn_stop.setFixedSize(66, _btn_h)
+        self._btn_stop.setFixedSize(68, _btn_h)
         self._btn_stop.hide()
         self._btn_stop.setStyleSheet(
-            f"QPushButton {{ background: #1a1a1a; color: #666; border: 1px solid #252525; "
-            f"border-radius: 5px; font-size: 11px; font-weight: 600; }}"
-            f"QPushButton:hover {{ background: #240a0a; color: #f87171; border-color: #4d1a1a; }}"
+            "QPushButton {"
+            "  background: #111; color: #484848; border: 1px solid #1e1e1e;"
+            "  border-radius: 5px; font-size: 10px; font-weight: 600; letter-spacing: 0.5px;"
+            "}"
+            "QPushButton:hover {"
+            "  background: #1e0808; color: #f87171; border-color: #4d1212;"
+            "}"
+            "QPushButton:pressed { background: #130606; }"
         )
         self._btn_stop.clicked.connect(self.close)
 
         self._btn_snap = QPushButton("⊕  SNAP")
-        self._btn_snap.setFixedSize(80, _btn_h)
+        self._btn_snap.setFixedSize(82, _btn_h)
         self._btn_snap.hide()
         self._btn_snap.setStyleSheet(
-            f"QPushButton {{ background: #0e1f3a; color: #60a5fa; border: 1px solid #1d3d6e; "
-            f"border-radius: 5px; font-size: 11px; font-weight: 700; }}"
-            f"QPushButton:hover {{ background: #1d3d6e; color: #bfdbfe; }}"
-            f"QPushButton:disabled {{ background: #161616; color: #2a2a2a; border-color: #1e1e1e; }}"
+            "QPushButton {"
+            "  background: #060e1e; color: #38bdf8; border: 1px solid #0d2a50;"
+            "  border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px;"
+            "}"
+            "QPushButton:hover {"
+            "  background: #0a1a30; color: #7dd3fc; border-color: #155ea0;"
+            "}"
+            "QPushButton:disabled {"
+            "  background: #0e0e0e; color: #181818; border-color: #181818;"
+            "}"
+            "QPushButton:pressed { background: #050c16; }"
         )
         self._btn_snap.clicked.connect(self._do_manual_snap)
 
         row = QHBoxLayout(header)
-        row.setContentsMargins(18, 0, 14, 0)
+        row.setContentsMargins(16, 0, 14, 0)
         row.setSpacing(10)
+        row.addWidget(badge)
         row.addWidget(title)
         row.addWidget(div)
         row.addWidget(self._session_lbl)
-        row.addSpacing(14)
+        row.addSpacing(8)
         row.addWidget(self._scan_status)
         row.addStretch()
         row.addWidget(self._btn_snap)
@@ -314,7 +345,9 @@ class ConveyorUIApp(QMainWindow):
             self._scan_status.setText(
                 f"{count} camera{'s' if count != 1 else ''} available"
             )
-            self._scan_status.setStyleSheet("color: #22c55e; font-size: 11px; font-style: normal;")
+            self._scan_status.setStyleSheet(
+                "color: #22c55e; font-size: 11px; font-style: normal;"
+            )
         for w in self._cam_widgets:
             w.scan_complete()
         # Restore saved selections
@@ -326,14 +359,11 @@ class ConveyorUIApp(QMainWindow):
     # ── Session start ─────────────────────────────────────────────────────────
 
     def _start_session(self):
-        # Collect selected sources (skip unassigned slots)
-        sources = []
-        for w in self._cam_widgets:
-            src = w._selected_source
-            if src is not None:
-                sources.append(src)
+        # Always pass all 4 slots with None for unassigned — preserves slot→buffer
+        # index mapping so cam 4 stays in widget 4 rather than collapsing to slot 1.
+        sources = [w._selected_source for w in self._cam_widgets]
 
-        if not sources:
+        if not any(s is not None for s in sources):
             self._scan_status.setText("Select at least one camera first")
             self._scan_status.setStyleSheet("color: #f59e0b; font-size: 11px;")
             return
@@ -342,11 +372,14 @@ class ConveyorUIApp(QMainWindow):
         self._btn_start.hide()
         self._btn_stop.show()
         self._scan_status.setText("Loading AI models...")
-        self._scan_status.setStyleSheet("color: #555; font-size: 11px; font-style: italic;")
+        self._scan_status.setStyleSheet("color: #444; font-size: 11px; font-style: italic;")
 
-        # Lock controls and show loading animation — preview stays live
+        # Only show loading overlay on slots that actually have a camera assigned
         for w in self._cam_widgets:
-            w.prepare_for_session()
+            if w._selected_source is not None:
+                w.prepare_for_session()
+            else:
+                w._combo.setEnabled(False)
 
         self._bridge.trigger_fired.connect(self._on_trigger)
         self._bridge.result_ready.connect(self._on_result)
@@ -381,7 +414,8 @@ class ConveyorUIApp(QMainWindow):
     def _on_system_ready(self):
         self._scan_status.setText("● SESSION ACTIVE")
         self._scan_status.setStyleSheet(
-            "color: #22c55e; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; font-style: normal;"
+            "color: #22c55e; font-size: 10px; font-weight: 700;"
+            "letter-spacing: 0.5px; font-style: normal;"
         )
 
         self._detector = MultiCameraDetector(
