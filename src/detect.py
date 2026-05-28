@@ -416,25 +416,60 @@ class AIInspectionSystem:
 
     # ── Barcode helpers ────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _validate_barcode(value: str) -> bool:
+        """Return False if value is obviously wrong (garbage, wrong checksum, too short)."""
+        if not value or len(value) < 4:
+            return False
+        # Must be ASCII printable only
+        if not all(32 <= ord(c) < 127 for c in value):
+            return False
+
+        def _gcd_checksum(digits, weights):
+            total = sum(int(d) * w for d, w in zip(digits[:-1], weights))
+            return (10 - total % 10) % 10 == int(digits[-1])
+
+        # EAN-13: 13 digits, weights alternating 1,3 starting at pos 0
+        if len(value) == 13 and value.isdigit():
+            return _gcd_checksum(value, [1 if i % 2 == 0 else 3 for i in range(12)])
+
+        # EAN-8: 8 digits, weights alternating 3,1 starting at pos 0
+        if len(value) == 8 and value.isdigit():
+            return _gcd_checksum(value, [3 if i % 2 == 0 else 1 for i in range(7)])
+
+        # UPC-A: 12 digits, weights alternating 3,1 starting at pos 0
+        if len(value) == 12 and value.isdigit():
+            return _gcd_checksum(value, [3 if i % 2 == 0 else 1 for i in range(11)])
+
+        # Other formats (CODE128, CODE39, QR, etc.): just sanity length
+        return len(value) >= 4
+
     def _decode_crop(self, crop):
         if crop is None or crop.size == 0:
             return None
 
         def _try(img):
+            # pyzbar: collect all candidates, pick the largest (most prominent in frame)
             if pyzbar_decode:
                 try:
+                    candidates = []
                     for r in pyzbar_decode(img, symbols=_PYZBAR_SYMBOLS):
-                        v = r.data.decode("utf-8")
-                        if v:
-                            return v
+                        v = r.data.decode("utf-8", errors="ignore").strip()
+                        if v and self._validate_barcode(v):
+                            area = r.rect.width * r.rect.height
+                            candidates.append((area, v))
+                    if candidates:
+                        return max(candidates)[1]   # largest bounding box wins
                 except Exception:
                     pass
+            # OpenCV barcode detector fallback
             try:
                 det = cv2.barcode.BarcodeDetector()
                 ok, decoded, _, _ = det.detectAndDecodeMulti(img)
                 if ok:
                     for v in decoded:
-                        if v:
+                        v = (v or "").strip()
+                        if v and self._validate_barcode(v):
                             return v
             except AttributeError:
                 pass
@@ -454,21 +489,21 @@ class AIInspectionSystem:
         v = _try(cv2.resize(gray, None, fx=3.0, fy=3.0, interpolation=cv2.INTER_LINEAR))
         if v: return v
 
-        # 4. Sharpened — recovers slightly blurry barcodes
-        kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
-        sharp = cv2.filter2D(gray, -1, kernel)
+        # 4. Mild sharpening — recovers slightly blurry barcodes without creating halos
+        sharp = cv2.filter2D(gray, -1, np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]]))
         v = _try(cv2.resize(sharp, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LINEAR))
         if v: return v
 
         # 5. Adaptive threshold — handles curved surfaces / uneven lighting
+        # Use INTER_NEAREST: binary images must NOT be interpolated with gray values
         thresh_a = cv2.adaptiveThreshold(
             gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-        v = _try(cv2.resize(thresh_a, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LINEAR))
+        v = _try(cv2.resize(thresh_a, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_NEAREST))
         if v: return v
 
-        # 6. Otsu threshold — handles low-contrast prints
+        # 6. Otsu threshold — handles low-contrast prints (INTER_NEAREST for binary)
         _, thresh_o = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        return _try(cv2.resize(thresh_o, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_LINEAR))
+        return _try(cv2.resize(thresh_o, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_NEAREST))
 
     def _padded_crop(self, img, xyxy, pad=0.15):
         h, w = img.shape[:2]
