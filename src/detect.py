@@ -132,6 +132,38 @@ _BATCH_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# ── Qwen response parsing helpers ─────────────────────────────────────────────
+_NON_ANSWERS = frozenset({
+    'none', 'n/a', 'not visible', 'not found', 'not available',
+    'not legible', 'cannot read', 'unknown', 'not present',
+    'not specified', 'not printed', 'not readable', 'not clear',
+    'not detected', 'not applicable', 'unclear',
+})
+
+_KEY_MAP = {
+    'brand': 'brand',
+    'product': 'product_name',
+    'product name': 'product_name',
+    'category': 'product_category',
+    'expiry': 'expiry_date',
+    'expiry date': 'expiry_date',
+    'best before': 'expiry_date',
+    'exp': 'expiry_date',
+    'mfg': 'manufacture_date',
+    'mfg date': 'manufacture_date',
+    'manufacture date': 'manufacture_date',
+    'manufactured': 'manufacture_date',
+    'manufacturing date': 'manufacture_date',
+    'batch': 'batch_number',
+    'batch no': 'batch_number',
+    'batch number': 'batch_number',
+    'lot no': 'batch_number',
+    'lot number': 'batch_number',
+}
+
+# ── CRNN dotted/inkjet OCR ────────────────────────────────────────────────────
+_CRNN_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/-.: "
+
 _PROMPT = (
     "You are a product inspection AI on a factory conveyor belt. "
     "You are given one or more images of the SAME physical product from different angles. "
@@ -148,7 +180,8 @@ _PROMPT = (
     "- Output ONLY the six fields above, one per line, no extra text.\n"
     "- If a date appears in multiple formats, output the most complete one.\n"
     "- Never confuse MFG and Expiry — Expiry is always the later date.\n"
-    "- If unsure, output NONE rather than guessing."
+    "- If unsure, output NONE rather than guessing.\n"
+    "- Do NOT add explanations or extra sentences — output only the six lines above."
 )
 
 
@@ -158,6 +191,7 @@ class AIInspectionSystem:
         barcode_model_path='models/barcode_detector.pt',
         qwen_model_id='Qwen/Qwen2.5-VL-3B-Instruct',
         world_model_id='yolov8m-worldv2.pt',
+        crnn_model_path='models/dotted_ocr_retrained.pth',
         debug=True,
     ):
         """
@@ -217,17 +251,37 @@ class AIInspectionSystem:
         self.qwen_model = _VLModel.from_pretrained(qwen_model_id, **load_kwargs).eval()
         print(f"[System] {qwen_model_id} loaded.")
 
-        # 640 patches per image keeps small text (dates, batch numbers) legible.
-        self.qwen_processor.image_processor.max_pixels = 640 * 28 * 28
+        # Higher max_pixels on CUDA gives Qwen better resolution for small label text.
+        # CPU stays at 640 to avoid memory pressure.
+        _max_side = 960 if self.device == "cuda" else 640
+        self.qwen_processor.image_processor.max_pixels = _max_side * 28 * 28
         self.qwen_processor.image_processor.min_pixels = 4 * 28 * 28
 
-        # ── RapidOCR — PP-OCR models via ONNX Runtime (no PaddlePaddle executor)
+        # ── EasyOCR ───────────────────────────────────────────────────────────
         print("[System] Loading EasyOCR...")
         self.ocr_reader = easyocr.Reader(['en'], gpu=(self.device == 'cuda'), verbose=False)
         self.ocr_ready = True
         print("[System] EasyOCR loaded.")
 
         torch.set_num_threads(os.cpu_count() or 4)
+
+        # ── CRNN dotted/inkjet OCR (reads faint dot-matrix printed dates/batch) ─
+        self.crnn_model = None
+        if crnn_model_path and os.path.exists(crnn_model_path):
+            try:
+                from src.ocr_model import CRNN as _CRNN
+                _n_class = len(_CRNN_ALPHABET) + 1   # +1 for CTC blank token
+                self.crnn_model = _CRNN(32, 1, _n_class, 256)
+                self.crnn_model.load_state_dict(
+                    torch.load(crnn_model_path, map_location='cpu')
+                )
+                self.crnn_model.eval()
+                self.crnn_model.to(self.device)
+                print("[System] CRNN dotted-OCR loaded.")
+            except Exception as e:
+                print(f"[Warning] CRNN load failed: {e}")
+        else:
+            print(f"[Warning] CRNN model not found: {crnn_model_path}")
 
         # ── YOLO-World open-vocabulary region detector ─────────────────────────
         self.world_detector = None
@@ -281,7 +335,7 @@ class AIInspectionSystem:
 
         with torch.inference_mode():
             output_ids = self.qwen_model.generate(
-                **inputs, max_new_tokens=64, do_sample=False
+                **inputs, max_new_tokens=200, do_sample=False
             )
 
         elapsed = time.time() - t0
@@ -296,19 +350,16 @@ class AIInspectionSystem:
     def _parse_response(self, response):
         result = {}
         for line in response.splitlines():
-            if ":" not in line:
+            if ':' not in line:
                 continue
-            key, _, value = line.partition(":")
-            value = value.strip()
+            key, _, value = line.partition(':')
             key = key.strip().lower()
-            if not value or value.upper() == "NONE":
+            value = value.strip().strip('"\'')
+            if not value or value.lower() in _NON_ANSWERS or value.upper() == 'NONE':
                 continue
-            if key == "brand":      result["brand"] = value
-            elif key == "product":  result["product_name"] = value
-            elif key == "category": result["product_category"] = value
-            elif key == "expiry":   result["expiry_date"] = value
-            elif key == "mfg":      result["manufacture_date"] = value
-            elif key == "batch":    result["batch_number"] = value
+            field = _KEY_MAP.get(key)
+            if field and field not in result:
+                result[field] = value
         return result
 
     # ── EasyOCR text reader ────────────────────────────────────────────────────
@@ -333,6 +384,35 @@ class AIInspectionSystem:
             cv2.putText(vis, f"{text} {conf:.2f}", tuple(pts[0].tolist()),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         return vis
+
+    # ── CRNN dotted/inkjet text reader ────────────────────────────────────────
+
+    def _read_crnn(self, crops):
+        """Decode dotted/inkjet text crops using the trained CRNN (CTC) model."""
+        if not self.crnn_model or not crops:
+            return []
+        results = []
+        for crop in crops:
+            gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY) if len(crop.shape) == 3 else crop.copy()
+            # Morphological closing connects individual dots into letter strokes
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+            gray = cv2.resize(gray, (128, 32))
+            inp = torch.from_numpy(gray.astype(np.float32) / 255.0)
+            inp = ((inp - 0.5) / 0.5).unsqueeze(0).unsqueeze(0).to(self.device)
+            with torch.no_grad():
+                preds = self.crnn_model(inp)
+            _, idx = torch.max(preds, 2)
+            idx = idx.permute(1, 0).cpu().numpy()[0]
+            chars = [
+                _CRNN_ALPHABET[i - 1]
+                for j, i in enumerate(idx)
+                if i != 0 and (j == 0 or i != idx[j - 1])
+            ]
+            text = "".join(chars).strip()
+            if len(text) >= 3:
+                results.append(text)
+        return results
 
     # ── Barcode helpers ────────────────────────────────────────────────────────
 
@@ -448,17 +528,18 @@ class AIInspectionSystem:
 
     # ── YOLO-World region detection ────────────────────────────────────────────
 
-    def _detect_regions(self, img_bgr, conf=0.08):
+    def _detect_regions(self, img_bgr, conf=0.15):
         """
-        Run YOLO-World on img_bgr and return a dict of class_name → crop (numpy BGR).
-        Only keeps the highest-confidence detection per class.
-        Returns {} if world_detector not loaded or nothing found.
+        Run YOLO-World on img_bgr and return:
+          - crops dict: class_name → crop (numpy BGR), best-confidence per class
+          - raw_results: raw YOLO results list (for debug overlay reuse — avoids double inference)
+        Returns ({}, []) if world_detector not loaded or nothing found.
         """
         if not self.world_detector:
-            return {}
-        results = self.world_detector(img_bgr, verbose=False, conf=conf)
+            return {}, []
+        raw_results = self.world_detector(img_bgr, verbose=False, conf=conf)
         best = {}  # class_name → (score, crop)
-        for det in results:
+        for det in raw_results:
             for box in det.boxes:
                 cls_id = int(box.cls[0])
                 name = _WORLD_CLASSES[cls_id]
@@ -469,7 +550,7 @@ class AIInspectionSystem:
                 crop = self._padded_crop(img_bgr, xyxy, pad=0.05)
                 if crop is not None and crop.size > 0:
                     best[name] = (score, crop)
-        return {name: crop for name, (_, crop) in best.items()}
+        return {name: crop for name, (_, crop) in best.items()}, raw_results
 
     # ── Main pipeline ──────────────────────────────────────────────────────────
 
@@ -532,8 +613,6 @@ class AIInspectionSystem:
         print(f"[Phase 1] Scanning {len(loaded)} image(s) for barcode...")
 
         # Pass 1 — direct decode on full image (no YOLO needed).
-        # Cap to 1920px so pyzbar stays fast on high-res phone photos;
-        # _decode_crop also retries on 2× grayscale internally.
         for path, img in loaded:
             h, w = img.shape[:2]
             long_side = max(h, w)
@@ -550,7 +629,6 @@ class AIInspectionSystem:
                 return result
 
         # Pass 2 — YOLO region proposal → padded crop → decode.
-        # Also saves a debug image with all detected barcode boxes drawn.
         for i, (path, img) in enumerate(loaded):
             if self.barcode_detector:
                 vis = img.copy()
@@ -578,22 +656,20 @@ class AIInspectionSystem:
         print("[Phase 1] No barcode — moving to Phase 2.")
 
         # ── YOLO-World: detect label/date/logo regions ─────────────────────────
-        # Runs on all images, keeps best-confidence crop per class.
-        # Saves a debug image with all boxes drawn + individual crops.
+        # Single inference pass per image; raw_results reused for debug overlay.
         regions = {}  # class_name → numpy BGR crop
         if self.world_detector:
             print("[World] Scanning for label/date/logo regions...")
             for i, (_, img) in enumerate(loaded):
-                vis = img.copy()
-                r = self._detect_regions(img)
+                r, raw_results = self._detect_regions(img)
                 for name, crop in r.items():
                     if name not in regions:
                         regions[name] = crop
                         _dbg(f'2b_world_crop_{name.replace(" ", "_")}.jpg', crop)
                         print(f"[World] Detected: {name}")
-                # Draw all boxes on vis for the debug overview image
-                raw = self.world_detector(img, verbose=False, conf=0.08)
-                for det in raw:
+                # Draw debug overlay using already-computed raw_results — no second inference
+                vis = img.copy()
+                for det in raw_results:
                     for box in det.boxes:
                         cls_id = int(box.cls[0])
                         name = _WORLD_CLASSES[cls_id]
@@ -608,21 +684,19 @@ class AIInspectionSystem:
                 print("[World] No regions detected — Qwen will read full images")
 
         # ── Phase 2: EasyOCR ──────────────────────────────────────────────────
-        # Prefer YOLO-World label crops (focused → less noise).
-        # If YOLO-World found nothing, run on full images with a stricter
-        # confidence threshold (0.40 vs 0.25) to suppress background garbage.
         _OCR_CLASSES = ["product label", "label sticker", "ingredient list", "nutrition facts panel"]
         ocr_targets = [regions[c] for c in _OCR_CLASSES if c in regions]
         if ocr_targets:
-            _ocr_conf = 0.25   # relaxed — focused crop, mostly real text
+            _ocr_conf = 0.25
         else:
             ocr_targets = [img for _, img in loaded]
-            _ocr_conf = 0.40   # strict — full image, filter background noise
+            _ocr_conf = 0.40
 
         _OCR_TARGET = 1920
         _clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         ocr_text_parts = []
-        text_region_crops = []  # tight crops around text clusters → sent to Qwen at higher detail
+        text_region_crops = []
+        crnn_crops = []   # low-confidence EasyOCR detections → likely inkjet/dotted text
         _ocr_idx = 0
         if self.ocr_ready:
             for img in ocr_targets:
@@ -642,11 +716,22 @@ class AIInspectionSystem:
                 t = self._read_paddleocr(img_up, min_conf=_ocr_conf)
                 _dbg(f'3_ocr_output_{_ocr_idx}.jpg', self._dbg_ocr_overlay(img_up))
 
-                # Compute a tight crop around all detected text boxes.
-                # Uses a low position threshold (0.20) — we only care about WHERE
-                # text is, not whether EasyOCR read it correctly.
-                # This crop is sent to Qwen so small sticker text (batch, MFD)
-                # occupies a much larger fraction of Qwen's token budget.
+                # Collect uncertain EasyOCR regions for CRNN dotted-text recognition.
+                # Confidence < 0.40 means EasyOCR found text but couldn't read it well —
+                # these are exactly the inkjet/dot-matrix regions CRNN was trained for.
+                for (bbox, _, conf) in getattr(self, '_last_ocr_raw', []):
+                    if conf < 0.40:
+                        pts = np.array(bbox, dtype=np.int32)
+                        x1, y1 = int(np.min(pts[:, 0])), int(np.min(pts[:, 1]))
+                        x2, y2 = int(np.max(pts[:, 0])), int(np.max(pts[:, 1]))
+                        pad = 4
+                        x1, y1 = max(0, x1 - pad), max(0, y1 - pad)
+                        x2, y2 = min(img_up.shape[1], x2 + pad), min(img_up.shape[0], y2 + pad)
+                        crop = img_up[y1:y2, x1:x2]
+                        if crop.size > 0 and (x2 - x1) >= 20 and (y2 - y1) >= 8:
+                            crnn_crops.append(crop)
+
+                # Compute a tight crop around all detected text boxes for Qwen.
                 _raw = getattr(self, '_last_ocr_raw', [])
                 _pos_boxes = [bbox for (bbox, _, c) in _raw if c > 0.20]
                 if len(_pos_boxes) >= 5:
@@ -675,21 +760,40 @@ class AIInspectionSystem:
                         result["dotted_label_text"] = t
                     ocr_text_parts.append(t)
 
+        # Also queue the barcode-adjacent crop for CRNN — batch codes are often printed
+        # right next to or near barcodes on the label.
+        if "barcode" in regions:
+            crnn_crops.append(regions["barcode"])
+
+        # ── CRNN dotted/inkjet recognition ────────────────────────────────────
+        if crnn_crops:
+            crnn_texts = self._read_crnn(crnn_crops)
+            if crnn_texts:
+                crnn_joined = " ".join(crnn_texts)
+                print(f"[CRNN] Dotted text: {crnn_joined}")
+                ocr_text_parts.append(crnn_joined)
+                result["dotted_label_text"] = crnn_joined
+
+        # ── Phase 2.5: Regex on ALL OCR text (EasyOCR + CRNN) — runs BEFORE Qwen ──
+        # OCR+Regex is authoritative for structured fields (dates, batch numbers).
+        # These results are set unconditionally; Qwen only fills what was NOT found here.
+        if ocr_text_parts:
+            combined = " ".join(ocr_text_parts)
+            for k, v in self._extract_dates(combined).items():
+                result[k] = v
+
         # ── Phase 3: Qwen2.5-VL ────────────────────────────────────────────────
-        # Build image list for Qwen:
+        # Build image list for Qwen — all camera angles (each may show a different face):
         #   1. YOLO-World label/logo crops (if any)
-        #   2. EasyOCR text-region crops (tight crop of detected text — higher detail
-        #      than full image, lets Qwen read small stickers / inkjet dates properly)
-        #   3. Sharpest full image(s) as fallback / brand-name context
+        #   2. EasyOCR text-region crops (tight crop of label text at higher detail)
+        #   3. Sharpest full image(s) for brand/product-name context
         _LABEL_PRIORITY = ["product label", "label sticker", "brand logo",
                            "nutrition facts panel", "ingredient list"]
         vlm_imgs = [regions[c] for c in _LABEL_PRIORITY if c in regions]
 
-        # Always add text-region crops — they give Qwen focused detail on the label area
         vlm_imgs.extend(text_region_crops)
 
         if not vlm_imgs:
-            # Nothing found at all — give Qwen the sharpest full images
             _VLM_MAX = 2
             if len(loaded) > _VLM_MAX:
                 ranked = sorted(loaded, reverse=True,
@@ -700,30 +804,33 @@ class AIInspectionSystem:
             else:
                 vlm_imgs = [img for _, img in loaded]
         else:
-            # Add the sharpest full image for brand/product-name context
             sharpest = max(loaded, key=lambda x: cv2.Laplacian(
                 cv2.cvtColor(x[1], cv2.COLOR_BGR2GRAY), cv2.CV_64F
             ).var())[1]
             vlm_imgs.append(sharpest)
 
-        vlm_imgs = vlm_imgs[:4]  # cap at 4 — text-region crop adds one slot
+        vlm_imgs = vlm_imgs[:4]
 
         print(f"[Phase 3] Qwen2.5-VL on {len(vlm_imgs)} image(s)...")
-        pil_images = [
-            Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            for img in vlm_imgs
-        ]
+
+        # Use CLAHE-enhanced versions for Qwen — same enhancement used for OCR,
+        # improves contrast on faint label text that Qwen needs to read.
+        _clahe_qwen = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        pil_images = []
+        for img in vlm_imgs:
+            lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+            lab[..., 0] = _clahe_qwen.apply(lab[..., 0])
+            enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+            pil_images.append(Image.fromarray(cv2.cvtColor(enhanced, cv2.COLOR_BGR2RGB)))
+
         for i, pil in enumerate(pil_images):
             _dbg(f'4_qwen_input_{i}.jpg', pil)
         qwen_data = self._qwen_extract(pil_images)
-        result.update({k: v for k, v in qwen_data.items() if v})
 
-        # ── Phase 4: Date regex on EasyOCR text (fills inkjet dates Qwen missed) ──
-        if ocr_text_parts:
-            combined = " ".join(ocr_text_parts)
-            for k, v in self._extract_dates(combined).items():
-                if not result.get(k):
-                    result[k] = v
+        # OCR/CRNN results are authoritative for dates/batch — Qwen only fills gaps.
+        for k, v in qwen_data.items():
+            if v and not result.get(k):
+                result[k] = v
 
         result["status"] = "Complete (Vision)" if result.get("brand") else "Incomplete"
 

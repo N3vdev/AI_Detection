@@ -85,7 +85,7 @@ class FrameDispatcher(QThread):
                     h, w, ch = rgb.shape
                     qimg = QImage(rgb.data, w, h, ch * w, QImage.Format.Format_RGB888).copy()
                     self.frame_ready.emit(i, qimg)
-            time.sleep(0.10)
+            time.sleep(0.067)   # ~15 fps
 
     @staticmethod
     def _draw_boxes(frame, boxes):
@@ -152,7 +152,8 @@ class ConveyorUIApp(QMainWindow):
         self._snap_cooldown = False
 
         self.setWindowTitle("AI Product Inspector — Conveyor")
-        self.setMinimumSize(1100, 740)
+        self.setMinimumSize(1120, 760)
+        self.resize(1280, 860)
         self._apply_style()
         self._build_ui()
         self._start_scanner()
@@ -161,11 +162,11 @@ class ConveyorUIApp(QMainWindow):
 
     def _apply_style(self):
         qss_path = os.path.join(os.path.dirname(__file__), "conveyor_ui", "style.qss")
-        base = ""
         if os.path.exists(qss_path):
             with open(qss_path, encoding="utf-8") as f:
-                base = f.read()
-        self.setStyleSheet(base + "\nQMainWindow, QWidget { background: #0d0d0d; }")
+                self.setStyleSheet(f.read())
+        else:
+            self.setStyleSheet("QMainWindow, QWidget { background: #0d0d0d; }")
 
     # ── UI ────────────────────────────────────────────────────────────────────
 
@@ -181,10 +182,9 @@ class ConveyorUIApp(QMainWindow):
 
         # Camera grid
         grid_w = QWidget()
-        grid_w.setStyleSheet("background: #0d0d0d;")
         grid = QGridLayout(grid_w)
-        grid.setContentsMargins(12, 12, 12, 8)
-        grid.setSpacing(10)
+        grid.setContentsMargins(10, 10, 10, 8)
+        grid.setSpacing(8)
 
         self._cam_widgets: list[CameraWidget] = []
         for i in range(NUM_CAMS):
@@ -204,62 +204,75 @@ class ConveyorUIApp(QMainWindow):
 
     def _build_header(self):
         header = QWidget()
-        header.setFixedHeight(50)
-        header.setStyleSheet("background: #111111; border-bottom: 1px solid #1e1e1e;")
+        header.setObjectName("app_header")
+        header.setFixedHeight(52)
+        header.setStyleSheet(
+            "#app_header { background: #111111; border-bottom: 1px solid #1a1a1a; }"
+        )
 
         title = QLabel("AI PRODUCT INSPECTOR")
         title.setStyleSheet(
-            "color: #e0e0e0; font-size: 14px; font-weight: 600; letter-spacing: 1px;"
+            "color: #c0c0c0; font-size: 13px; font-weight: 700; letter-spacing: 2px;"
         )
 
-        self._session_lbl = QLabel(f"session: {self._session_id}")
-        self._session_lbl.setStyleSheet("color: #444; font-size: 11px;")
+        # Vertical divider
+        div = QLabel("|")
+        div.setStyleSheet("color: #222; font-size: 18px; padding: 0 2px;")
+
+        self._session_lbl = QLabel(self._session_id)
+        self._session_lbl.setStyleSheet(
+            "color: #333; font-size: 10px; font-family: 'Consolas', 'Courier New', monospace;"
+        )
 
         self._scan_status = QLabel("Scanning for cameras...")
-        self._scan_status.setStyleSheet("color: #555; font-size: 11px; font-style: italic;")
+        self._scan_status.setStyleSheet("color: #444; font-size: 11px; font-style: italic;")
+
+        # Buttons
+        _btn_h = 30
 
         self._btn_start = QPushButton("START SESSION")
-        self._btn_start.setFixedSize(130, 32)
+        self._btn_start.setFixedSize(126, _btn_h)
         self._btn_start.setEnabled(False)
         self._btn_start.setStyleSheet(
-            "QPushButton { background: #14532d; color: #4ade80; border: 1px solid #166534; "
-            "border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }"
-            "QPushButton:enabled:hover { background: #166534; color: #86efac; }"
-            "QPushButton:disabled { background: #1a1a1a; color: #333; border-color: #222; }"
+            f"QPushButton {{ background: #0f2d1a; color: #4ade80; border: 1px solid #1a4728; "
+            f"border-radius: 5px; font-size: 11px; font-weight: 700; letter-spacing: 1px; }}"
+            f"QPushButton:enabled:hover {{ background: #14532d; color: #86efac; }}"
+            f"QPushButton:disabled {{ background: #161616; color: #2a2a2a; border-color: #1e1e1e; }}"
         )
         self._btn_start.clicked.connect(self._start_session)
 
         self._btn_stop = QPushButton("STOP")
-        self._btn_stop.setFixedSize(72, 32)
+        self._btn_stop.setFixedSize(66, _btn_h)
         self._btn_stop.hide()
         self._btn_stop.setStyleSheet(
-            "QPushButton { background: #1a1a1a; color: #888; border: 1px solid #2a2a2a; "
-            "border-radius: 6px; font-size: 12px; font-weight: 500; }"
-            "QPushButton:hover { background: #2a0a0a; color: #f87171; border-color: #5c1a1a; }"
+            f"QPushButton {{ background: #1a1a1a; color: #666; border: 1px solid #252525; "
+            f"border-radius: 5px; font-size: 11px; font-weight: 600; }}"
+            f"QPushButton:hover {{ background: #240a0a; color: #f87171; border-color: #4d1a1a; }}"
         )
         self._btn_stop.clicked.connect(self.close)
 
-        # ── SNAP button ───────────────────────────────────────────────────────
-        self._btn_snap = QPushButton("SNAP")
-        self._btn_snap.setFixedSize(72, 32)
+        self._btn_snap = QPushButton("⊕  SNAP")
+        self._btn_snap.setFixedSize(80, _btn_h)
         self._btn_snap.hide()
         self._btn_snap.setStyleSheet(
-            "QPushButton { background: #1e3a5f; color: #60a5fa; border: 1px solid #2563eb; "
-            "border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px; }"
-            "QPushButton:hover { background: #2563eb; color: #bfdbfe; }"
-            "QPushButton:disabled { background: #1a1a1a; color: #333; border-color: #222; }"
+            f"QPushButton {{ background: #0e1f3a; color: #60a5fa; border: 1px solid #1d3d6e; "
+            f"border-radius: 5px; font-size: 11px; font-weight: 700; }}"
+            f"QPushButton:hover {{ background: #1d3d6e; color: #bfdbfe; }}"
+            f"QPushButton:disabled {{ background: #161616; color: #2a2a2a; border-color: #1e1e1e; }}"
         )
         self._btn_snap.clicked.connect(self._do_manual_snap)
 
         row = QHBoxLayout(header)
-        row.setContentsMargins(16, 0, 16, 0)
+        row.setContentsMargins(18, 0, 14, 0)
         row.setSpacing(10)
         row.addWidget(title)
+        row.addWidget(div)
         row.addWidget(self._session_lbl)
-        row.addSpacing(8)
+        row.addSpacing(14)
         row.addWidget(self._scan_status)
         row.addStretch()
         row.addWidget(self._btn_snap)
+        row.addSpacing(4)
         row.addWidget(self._btn_start)
         row.addWidget(self._btn_stop)
 
@@ -295,13 +308,13 @@ class ConveyorUIApp(QMainWindow):
     def _on_scan_complete(self):
         count = self._cam_widgets[0]._combo.count() - 1  # minus placeholder
         if count == 0:
-            self._scan_status.setText("No cameras found — connect a camera and restart")
-            self._scan_status.setStyleSheet("color: #f87171; font-size: 11px;")
+            self._scan_status.setText("No cameras found")
+            self._scan_status.setStyleSheet("color: #f87171; font-size: 11px; font-style: normal;")
         else:
             self._scan_status.setText(
-                f"{count} camera{'s' if count != 1 else ''} found"
+                f"{count} camera{'s' if count != 1 else ''} available"
             )
-            self._scan_status.setStyleSheet("color: #22c55e; font-size: 11px;")
+            self._scan_status.setStyleSheet("color: #22c55e; font-size: 11px; font-style: normal;")
         for w in self._cam_widgets:
             w.scan_complete()
         # Restore saved selections
@@ -328,8 +341,8 @@ class ConveyorUIApp(QMainWindow):
         self._session_running = True
         self._btn_start.hide()
         self._btn_stop.show()
-        self._scan_status.setText("Loading models...")
-        self._scan_status.setStyleSheet("color: #888; font-size: 11px; font-style: italic;")
+        self._scan_status.setText("Loading AI models...")
+        self._scan_status.setStyleSheet("color: #555; font-size: 11px; font-style: italic;")
 
         # Lock controls and show loading animation — preview stays live
         for w in self._cam_widgets:
@@ -366,8 +379,10 @@ class ConveyorUIApp(QMainWindow):
             self._cam_widgets[cam_idx].set_disconnected()
 
     def _on_system_ready(self):
-        self._scan_status.setText("Session running")
-        self._scan_status.setStyleSheet("color: #22c55e; font-size: 11px; font-style: normal;")
+        self._scan_status.setText("● SESSION ACTIVE")
+        self._scan_status.setStyleSheet(
+            "color: #22c55e; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; font-style: normal;"
+        )
 
         self._detector = MultiCameraDetector(
             self._system._buffers,
