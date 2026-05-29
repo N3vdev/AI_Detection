@@ -36,7 +36,6 @@ REQS_FILE  = APP_DIR / "requirements_app.txt"
 MAIN_APP   = APP_DIR / "run_conveyor_ui.py"
 
 QWEN_MODEL  = "Qwen/Qwen2.5-VL-3B-Instruct"
-YOLO_MODELS = ["yolo11n.pt", "yolov8m-worldv2.pt"]
 
 
 def _bundled(name: str) -> Path:
@@ -279,20 +278,7 @@ def do_setup(ui: "SetupUI | None", log_fn):
             else:
                 log("Qwen model ready.")
 
-        hf_env = os.environ.copy()
-        hf_env["HF_HOME"] = effective_hf_home
-        hf_env["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-
-        log("Checking YOLO models ...")
-        for model_name in YOLO_MODELS:
-            r = _run(
-                [str(_py_exe()), "-c",
-                 f"from ultralytics import YOLO; "
-                 f"YOLO('{model_name}'); print('[OK] {model_name} ready')"],
-                cwd=str(APP_DIR), env=hf_env, log=log,
-            )
-            if r.returncode != 0:
-                log(f"[Warning] {model_name} pre-download failed — will download on first run.")
+        log("YOLO models will be downloaded automatically on first inspection run.")
 
         # Save effective HF_HOME so launch_app() uses the same location
         (ENV_DIR / "hf_home.txt").write_text(effective_hf_home)
