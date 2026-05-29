@@ -227,23 +227,33 @@ def do_setup(ui: "SetupUI | None", log_fn):
         gpu = _detect_gpu()
         if gpu:
             log(f"GPU detected: {gpu}")
-            torch_cmd = [
-                str(_pip_exe()), "install", "--upgrade",
-                "torch", "torchvision",
-                "--extra-index-url", "https://download.pytorch.org/whl/cu124",
-            ]
+            torch_index = "https://download.pytorch.org/whl/cu124"
         else:
             log("No NVIDIA GPU — installing CPU-only PyTorch (slower inference).")
-            torch_cmd = [
-                str(_pip_exe()), "install", "--upgrade",
-                "torch", "torchvision",
-                "--extra-index-url", "https://download.pytorch.org/whl/cpu",
-            ]
+            torch_index = "https://download.pytorch.org/whl/cpu"
 
+        # --index-url (not --extra-index-url) guarantees pip picks the CUDA wheel
+        # from PyTorch's server rather than the CPU build from PyPI.
         log("Installing PyTorch (may take several minutes) ...")
-        r = _run(torch_cmd, log=log)
+        r = _run([
+            str(_pip_exe()), "install", "--upgrade",
+            "torch", "torchvision",
+            "--index-url", torch_index,
+        ], log=log)
         if r.returncode != 0:
             raise RuntimeError(f"torch install failed (exit {r.returncode})")
+
+        # accelerate lives on PyPI, not the PyTorch wheel server — install separately.
+        log("Installing accelerate ...")
+        r = _run([str(_pip_exe()), "install", "--upgrade", "accelerate"], log=log)
+        if r.returncode != 0:
+            raise RuntimeError(f"accelerate install failed (exit {r.returncode})")
+
+        # Confirm CUDA is visible
+        r = _run([str(_py_exe()), "-c",
+                  "import torch; print('[CUDA]', torch.cuda.is_available(), "
+                  "torch.version.cuda if torch.cuda.is_available() else 'CPU only')"],
+                 log=log)
 
         if ui: ui.step("3 / 4  —  Installing remaining packages...", 58)
         log("\nInstalling requirements_app.txt ...")
