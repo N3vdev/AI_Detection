@@ -1,0 +1,30 @@
+# All runtime dependencies EXCEPT torch/torchvision/accelerate.
+# Those are installed by the launcher with GPU/CPU auto-detection.
+
+# ── Vision-Language Model ─────────────────────────────────────────────────────
+transformers>=4.51.0
+huggingface-hub
+sentencepiece
+tiktoken
+accelerate
+
+# 4-bit quantization (enabled automatically on low-VRAM GPUs)
+bitsandbytes
+
+# ── Computer Vision ───────────────────────────────────────────────────────────
+opencv-contrib-python
+Pillow
+numpy
+
+# ── Barcode Detection ─────────────────────────────────────────────────────────
+ultralytics
+pyzbar
+
+# ── OCR ───────────────────────────────────────────────────────────────────────
+easyocr
+
+# ── UI ────────────────────────────────────────────────────────────────────────
+PyQt6
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+pyyaml
