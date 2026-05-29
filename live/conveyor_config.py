@@ -31,7 +31,7 @@ TRIGGER_CONFIDENCE_THRESHOLD = 0.45  # Higher = fewer false positives on backgro
 TRIGGER_MIN_BOX_AREA = 0.04          # Object must cover ≥4% of frame (filters tiny noise)
 TRIGGER_ENTER_FRAMES = 3             # Consecutive detections to confirm product entered
 TRIGGER_LEAVE_FRAMES = 8             # Consecutive empty frames to confirm product left
-TRIGGER_AUTO = True                  # True = YOLO fires automatically; False = manual SNAP only
+TRIGGER_AUTO = False                  # True = YOLO fires automatically; False = manual SNAP only
 
 # COCO class IDs the trigger/display YOLO will respond to.
 # Excludes: person (0), vehicles (1-8), outdoor (9-13), animals (14-23),

@@ -4,7 +4,7 @@ AI Product Inspector — First-run bootstrapper
 Compile to a single EXE (run build_exe.bat):
 
   pyinstaller --onefile --windowed --name AI_Inspector
-      --add-data "python311_embed.zip;."
+      --add-data "python313_embed.zip;."
       --add-data "get_pip.py;."
       launcher.py
 
@@ -57,7 +57,7 @@ def _bundled(name: str) -> Path:
     return APP_DIR / name
 
 
-EMBED_ZIP  = _bundled("python311_embed.zip")
+EMBED_ZIP  = _bundled("python313_embed.zip")
 GET_PIP_PY = _bundled("get_pip.py")
 
 

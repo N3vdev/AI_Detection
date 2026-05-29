@@ -31,8 +31,8 @@ if errorlevel 1 (
 )
 
 :: ── 3. Download Python 3.11 embedded runtime ─────────────────────────────────
-set EMBED_ZIP=python311_embed.zip
-set EMBED_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip
+set EMBED_ZIP=python313_embed.zip
+set EMBED_URL=https://www.python.org/ftp/python/3.13.3/python-3.13.3-embed-amd64.zip
 
 if not exist "%EMBED_ZIP%" (
     echo [Download] Fetching Python 3.11.9 embedded runtime...
