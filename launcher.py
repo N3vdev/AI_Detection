@@ -249,26 +249,41 @@ def do_setup(ui: "SetupUI | None", log_fn):
         log("All packages installed.")
 
         # ── 4. Pre-download AI models ─────────────────────────────────────────
-        if ui: ui.step("4 / 4  —  Downloading AI models  (~3–5 GB)...", 74)
+        if ui: ui.step("4 / 4  —  Checking AI models...", 74)
         log("\n=== Step 4: AI models")
 
+        # Check if model already exists in the system HF cache
+        default_hf = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
+        model_cache_dir = default_hf / "hub" / ("models--" + QWEN_MODEL.replace("/", "--"))
+
+        if model_cache_dir.exists():
+            log(f"Qwen model found in existing cache: {default_hf}")
+            log("Skipping download — using existing installation.")
+            effective_hf_home = str(default_hf)
+        else:
+            if ui: ui.step("4 / 4  —  Downloading AI models  (~3–5 GB)...", 74)
+            effective_hf_home = str(MODELS_DIR)
+            hf_env = os.environ.copy()
+            hf_env["HF_HOME"] = effective_hf_home
+            hf_env["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
+            log(f"Downloading {QWEN_MODEL} ...")
+            r = _run(
+                [str(_py_exe()), "-c",
+                 f"from huggingface_hub import snapshot_download; "
+                 f"snapshot_download('{QWEN_MODEL}'); print('[OK] Qwen download complete')"],
+                env=hf_env, log=log,
+            )
+            if r.returncode != 0:
+                log("[Warning] Qwen download failed — the app will re-attempt on first inspection.")
+            else:
+                log("Qwen model ready.")
+
         hf_env = os.environ.copy()
-        hf_env["HF_HOME"] = str(MODELS_DIR)
+        hf_env["HF_HOME"] = effective_hf_home
         hf_env["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
-        log(f"Downloading {QWEN_MODEL} ...")
-        r = _run(
-            [str(_py_exe()), "-c",
-             f"from huggingface_hub import snapshot_download; "
-             f"snapshot_download('{QWEN_MODEL}'); print('[OK] Qwen download complete')"],
-            env=hf_env, log=log,
-        )
-        if r.returncode != 0:
-            log("[Warning] Qwen download failed — the app will re-attempt on first inspection.")
-        else:
-            log("Qwen model ready.")
-
-        log("Pre-downloading YOLO models ...")
+        log("Checking YOLO models ...")
         for model_name in YOLO_MODELS:
             r = _run(
                 [str(_py_exe()), "-c",
@@ -279,6 +294,9 @@ def do_setup(ui: "SetupUI | None", log_fn):
             if r.returncode != 0:
                 log(f"[Warning] {model_name} pre-download failed — will download on first run.")
 
+        # Save effective HF_HOME so launch_app() uses the same location
+        (ENV_DIR / "hf_home.txt").write_text(effective_hf_home)
+
         FLAG_FILE.write_text("ready")
         log("\n✓ Setup complete. AI Inspector is ready.")
 
@@ -287,7 +305,8 @@ def do_setup(ui: "SetupUI | None", log_fn):
 
 def launch_app():
     env = os.environ.copy()
-    env["HF_HOME"] = str(MODELS_DIR)
+    hf_home_file = ENV_DIR / "hf_home.txt"
+    env["HF_HOME"] = hf_home_file.read_text().strip() if hf_home_file.exists() else str(MODELS_DIR)
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     subprocess.Popen(
         [str(_py_exe()), str(MAIN_APP)],
