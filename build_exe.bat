@@ -15,7 +15,7 @@ cd /d "%~dp0"
 python --version >nul 2>&1
 if errorlevel 1 (
     echo [ERROR] Python not found in PATH.
-    echo         Install Python 3.11+ from https://python.org and re-run.
+    echo         Install Python 3.13+ from https://python.org and re-run.
     pause & exit /b 1
 )
 
@@ -30,12 +30,12 @@ if errorlevel 1 (
     )
 )
 
-:: ── 3. Download Python 3.11 embedded runtime ─────────────────────────────────
+:: ── 3. Download Python 3.13 embedded runtime ─────────────────────────────────
 set EMBED_ZIP=python313_embed.zip
 set EMBED_URL=https://www.python.org/ftp/python/3.13.3/python-3.13.3-embed-amd64.zip
 
 if not exist "%EMBED_ZIP%" (
-    echo [Download] Fetching Python 3.11.9 embedded runtime...
+    echo [Download] Fetching Python 3.13.3 embedded runtime...
     python -c "import urllib.request; urllib.request.urlretrieve('%EMBED_URL%', '%EMBED_ZIP%'); print('Done.')"
     if errorlevel 1 (
         echo [ERROR] Download failed. Check your internet connection.
