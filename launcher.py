@@ -225,15 +225,15 @@ def do_setup(ui: "SetupUI | None", log_fn):
             log(f"GPU detected: {gpu}")
             torch_cmd = [
                 str(_pip_exe()), "install", "--upgrade",
-                "torch", "torchvision", "accelerate",
-                "--index-url", "https://download.pytorch.org/whl/cu124",
+                "torch", "torchvision",
+                "--extra-index-url", "https://download.pytorch.org/whl/cu124",
             ]
         else:
             log("No NVIDIA GPU — installing CPU-only PyTorch (slower inference).")
             torch_cmd = [
                 str(_pip_exe()), "install", "--upgrade",
-                "torch", "torchvision", "accelerate",
-                "--index-url", "https://download.pytorch.org/whl/cpu",
+                "torch", "torchvision",
+                "--extra-index-url", "https://download.pytorch.org/whl/cpu",
             ]
 
         log("Installing PyTorch (may take several minutes) ...")
