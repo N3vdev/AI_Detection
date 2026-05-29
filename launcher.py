@@ -226,7 +226,7 @@ def do_setup(ui: "SetupUI | None", log_fn):
             torch_cmd = [
                 str(_pip_exe()), "install", "--upgrade",
                 "torch", "torchvision", "accelerate",
-                "--index-url", "https://download.pytorch.org/whl/cu121",
+                "--index-url", "https://download.pytorch.org/whl/cu124",
             ]
         else:
             log("No NVIDIA GPU — installing CPU-only PyTorch (slower inference).")
