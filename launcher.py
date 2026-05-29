@@ -24,18 +24,13 @@ from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
-# APP_DIR = folder containing the EXE (or the .py script during development)
-APP_DIR = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
+APP_DIR    = Path(sys.executable).parent if getattr(sys, 'frozen', False) else Path(__file__).parent
 
 ENV_DIR    = APP_DIR / "_env"
 PYTHON_DIR = ENV_DIR / "python"
-VENV_DIR   = ENV_DIR / "venv"
 FLAG_FILE  = ENV_DIR / ".ready"
 MODELS_DIR = APP_DIR / "_models"
 LOG_FILE   = ENV_DIR / "setup.log"
-
-VENV_PY    = VENV_DIR / "Scripts" / "python.exe"
-VENV_PIP   = VENV_DIR / "Scripts" / "pip.exe"
 
 REQS_FILE  = APP_DIR / "requirements_app.txt"
 MAIN_APP   = APP_DIR / "run_conveyor_ui.py"
@@ -45,10 +40,6 @@ YOLO_MODELS = ["yolo11n.pt", "yolov8m-worldv2.pt"]
 
 
 def _bundled(name: str) -> Path:
-    """
-    Find a file that was bundled inside the EXE via --add-data, OR falls back
-    to the same directory as the EXE (for development / manual distribution).
-    """
     meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
         p = Path(meipass) / name
@@ -60,11 +51,14 @@ def _bundled(name: str) -> Path:
 EMBED_ZIP  = _bundled("python313_embed.zip")
 GET_PIP_PY = _bundled("get_pip.py")
 
+# Derived after extraction
+def _py_exe()  -> Path: return PYTHON_DIR / "python.exe"
+def _pip_exe() -> Path: return PYTHON_DIR / "Scripts" / "pip.exe"
+
 
 # ── GPU detection ──────────────────────────────────────────────────────────────
 
 def _detect_gpu() -> str | None:
-    """Return NVIDIA GPU name if present, else None."""
     try:
         r = subprocess.run(
             ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
@@ -98,9 +92,8 @@ class SetupUI:
         self.root.resizable(False, False)
         self.root.configure(bg="#0d0d0d")
         self._allow_close = False
-        self.root.protocol("WM_DELETE_WINDOW", lambda: None)  # block close during setup
+        self.root.protocol("WM_DELETE_WINDOW", lambda: None)
 
-        # Header
         tk.Label(self.root, text="AI PRODUCT INSPECTOR",
                  bg="#0d0d0d", fg="#22c55e",
                  font=("Segoe UI", 15, "bold")).pack(pady=(30, 4))
@@ -109,7 +102,6 @@ class SetupUI:
                  bg="#0d0d0d", fg="#444",
                  font=("Segoe UI", 9)).pack()
 
-        # Progress bar
         self._pv = tk.DoubleVar()
         s = ttk.Style()
         s.theme_use("clam")
@@ -125,7 +117,6 @@ class SetupUI:
                  bg="#0d0d0d", fg="#555",
                  font=("Segoe UI", 9)).pack()
 
-        # Scrollable log
         self._log_w = scrolledtext.ScrolledText(
             self.root, height=11, width=74,
             bg="#080808", fg="#404040", insertbackground="#404040",
@@ -133,8 +124,6 @@ class SetupUI:
         )
         self._log_w.pack(padx=20, pady=(14, 20))
         self._log_w.configure(state="disabled")
-
-    # ── Public API ─────────────────────────────────────────────────────────────
 
     def step(self, text: str, pct: float):
         self._step_var.set(text)
@@ -157,7 +146,7 @@ class SetupUI:
     def finish_error(self, msg: str):
         self._allow_close = True
         self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
-        self.step(f"✗  Setup failed", 0)
+        self.step("✗  Setup failed", 0)
         self._log_w.configure(fg="#f87171")
         self.log(f"\nERROR: {msg}")
         self.log(f"\nFull log saved to: {LOG_FILE}")
@@ -169,7 +158,6 @@ class SetupUI:
 # ── Setup logic ────────────────────────────────────────────────────────────────
 
 def _run(cmd, cwd=None, env=None, log=None) -> subprocess.CompletedProcess:
-    """Run a command, optionally streaming output to a log callback."""
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, env=env)
     if log:
         for line in (r.stdout + r.stderr).splitlines():
@@ -182,7 +170,6 @@ def do_setup(ui: "SetupUI | None", log_fn):
     ENV_DIR.mkdir(parents=True, exist_ok=True)
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Direct all log output to both the UI and the log file
     with open(LOG_FILE, "w", encoding="utf-8") as logf:
 
         def log(line: str):
@@ -191,12 +178,12 @@ def do_setup(ui: "SetupUI | None", log_fn):
             log_fn(line)
 
         # ── 1. Extract embedded Python ────────────────────────────────────────
-        if ui: ui.step("1 / 5  —  Extracting Python 3.11 runtime...", 4)
+        if ui: ui.step("1 / 4  —  Extracting Python 3.13 runtime...", 5)
         log("=== Step 1: Python runtime")
         if not PYTHON_DIR.exists():
             if not EMBED_ZIP.exists():
                 raise FileNotFoundError(
-                    f"python311_embed.zip not found.\n"
+                    f"python313_embed.zip not found.\n"
                     f"Expected at: {EMBED_ZIP}\n"
                     "Ensure all distribution files are in the same folder as AI_Inspector.exe"
                 )
@@ -212,19 +199,15 @@ def do_setup(ui: "SetupUI | None", log_fn):
         else:
             log("Runtime already present — skipping extraction.")
 
-        py_exe = PYTHON_DIR / "python.exe"
-
         # ── 2. Bootstrap pip ──────────────────────────────────────────────────
-        if ui: ui.step("2 / 5  —  Bootstrapping pip...", 14)
+        if ui: ui.step("2 / 4  —  Bootstrapping pip...", 18)
         log("\n=== Step 2: pip")
         pip_marker = PYTHON_DIR / "_pip_ready"
         if not pip_marker.exists():
             if not GET_PIP_PY.exists():
-                raise FileNotFoundError(
-                    f"get_pip.py not found at {GET_PIP_PY}"
-                )
+                raise FileNotFoundError(f"get_pip.py not found at {GET_PIP_PY}")
             log("Bootstrapping pip ...")
-            r = _run([str(py_exe), str(GET_PIP_PY), "--no-warn-script-location"],
+            r = _run([str(_py_exe()), str(GET_PIP_PY), "--no-warn-script-location"],
                      cwd=str(PYTHON_DIR), log=log)
             if r.returncode != 0:
                 raise RuntimeError(f"pip bootstrap failed (exit {r.returncode})")
@@ -233,34 +216,22 @@ def do_setup(ui: "SetupUI | None", log_fn):
         else:
             log("pip already bootstrapped.")
 
-        # ── 3. Create virtual environment ─────────────────────────────────────
-        if ui: ui.step("3 / 5  —  Creating virtual environment...", 24)
-        log("\n=== Step 3: virtual environment")
-        if not VENV_DIR.exists():
-            log("Creating venv ...")
-            r = _run([str(py_exe), "-m", "venv", str(VENV_DIR)], log=log)
-            if r.returncode != 0:
-                raise RuntimeError(f"venv creation failed (exit {r.returncode})")
-            log("venv created.")
-        else:
-            log("venv already exists.")
-
-        # ── 4. Install packages ───────────────────────────────────────────────
-        if ui: ui.step("4 / 5  —  Installing packages  (10–20 min)...", 33)
-        log("\n=== Step 4: packages")
+        # ── 3. Install packages ───────────────────────────────────────────────
+        if ui: ui.step("3 / 4  —  Installing packages  (10–20 min)...", 30)
+        log("\n=== Step 3: packages")
 
         gpu = _detect_gpu()
         if gpu:
             log(f"GPU detected: {gpu}")
             torch_cmd = [
-                str(VENV_PIP), "install", "--upgrade",
+                str(_pip_exe()), "install", "--upgrade",
                 "torch", "torchvision", "accelerate",
                 "--index-url", "https://download.pytorch.org/whl/cu121",
             ]
         else:
             log("No NVIDIA GPU — installing CPU-only PyTorch (slower inference).")
             torch_cmd = [
-                str(VENV_PIP), "install", "--upgrade",
+                str(_pip_exe()), "install", "--upgrade",
                 "torch", "torchvision", "accelerate",
                 "--index-url", "https://download.pytorch.org/whl/cpu",
             ]
@@ -270,25 +241,24 @@ def do_setup(ui: "SetupUI | None", log_fn):
         if r.returncode != 0:
             raise RuntimeError(f"torch install failed (exit {r.returncode})")
 
-        if ui: ui.step("4 / 5  —  Installing remaining packages...", 55)
+        if ui: ui.step("3 / 4  —  Installing remaining packages...", 58)
         log("\nInstalling requirements_app.txt ...")
-        r = _run([str(VENV_PIP), "install", "-r", str(REQS_FILE)], log=log)
+        r = _run([str(_pip_exe()), "install", "-r", str(REQS_FILE)], log=log)
         if r.returncode != 0:
             raise RuntimeError(f"requirements install failed (exit {r.returncode})")
         log("All packages installed.")
 
-        # ── 5. Pre-download AI models ─────────────────────────────────────────
-        if ui: ui.step("5 / 5  —  Downloading AI models  (~3–5 GB)...", 72)
-        log(f"\n=== Step 5: AI models")
+        # ── 4. Pre-download AI models ─────────────────────────────────────────
+        if ui: ui.step("4 / 4  —  Downloading AI models  (~3–5 GB)...", 74)
+        log("\n=== Step 4: AI models")
 
         hf_env = os.environ.copy()
         hf_env["HF_HOME"] = str(MODELS_DIR)
         hf_env["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
-        # Qwen 2.5-VL-3B
         log(f"Downloading {QWEN_MODEL} ...")
         r = _run(
-            [str(VENV_PY), "-c",
+            [str(_py_exe()), "-c",
              f"from huggingface_hub import snapshot_download; "
              f"snapshot_download('{QWEN_MODEL}'); print('[OK] Qwen download complete')"],
             env=hf_env, log=log,
@@ -298,11 +268,10 @@ def do_setup(ui: "SetupUI | None", log_fn):
         else:
             log("Qwen model ready.")
 
-        # YOLO models (ultralytics auto-downloads on first use, but we pre-fetch here)
         log("Pre-downloading YOLO models ...")
         for model_name in YOLO_MODELS:
             r = _run(
-                [str(VENV_PY), "-c",
+                [str(_py_exe()), "-c",
                  f"from ultralytics import YOLO; "
                  f"YOLO('{model_name}'); print('[OK] {model_name} ready')"],
                 cwd=str(APP_DIR), env=hf_env, log=log,
@@ -310,7 +279,6 @@ def do_setup(ui: "SetupUI | None", log_fn):
             if r.returncode != 0:
                 log(f"[Warning] {model_name} pre-download failed — will download on first run.")
 
-        # ── Done ──────────────────────────────────────────────────────────────
         FLAG_FILE.write_text("ready")
         log("\n✓ Setup complete. AI Inspector is ready.")
 
@@ -320,10 +288,9 @@ def do_setup(ui: "SetupUI | None", log_fn):
 def launch_app():
     env = os.environ.copy()
     env["HF_HOME"] = str(MODELS_DIR)
-    # CREATE_NO_WINDOW so no console flickers when launched from EXE
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     subprocess.Popen(
-        [str(VENV_PY), str(MAIN_APP)],
+        [str(_py_exe()), str(MAIN_APP)],
         cwd=str(APP_DIR),
         env=env,
         creationflags=flags,
@@ -333,14 +300,11 @@ def launch_app():
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 def main():
-    # Already installed — go straight to launch
     if FLAG_FILE.exists():
         launch_app()
         return
 
-    # ── First run: show setup UI ───────────────────────────────────────────────
     if not _HAS_TK:
-        # Headless fallback (very unlikely on Windows)
         print("[AI Inspector] First-run setup — please wait...")
         try:
             do_setup(None, print)
