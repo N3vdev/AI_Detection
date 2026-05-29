@@ -98,14 +98,14 @@ class SetupUI:
                  font=("Segoe UI", 15, "bold")).pack(pady=(30, 4))
         tk.Label(self.root,
                  text="First-run setup — please do not close this window",
-                 bg="#0d0d0d", fg="#444",
+                 bg="#0d0d0d", fg="#666",
                  font=("Segoe UI", 9)).pack()
 
         self._pv = tk.DoubleVar()
         s = ttk.Style()
         s.theme_use("clam")
         s.configure("G.Horizontal.TProgressbar",
-                    background="#22c55e", troughcolor="#131313",
+                    background="#22c55e", troughcolor="#1a1a1a",
                     bordercolor="#1c1c1c", lightcolor="#22c55e", darkcolor="#16a34a")
         ttk.Progressbar(self.root, variable=self._pv,
                         style="G.Horizontal.TProgressbar",
@@ -113,13 +113,13 @@ class SetupUI:
 
         self._step_var = tk.StringVar(value="Initialising...")
         tk.Label(self.root, textvariable=self._step_var,
-                 bg="#0d0d0d", fg="#555",
-                 font=("Segoe UI", 9)).pack()
+                 bg="#0d0d0d", fg="#aaaaaa",
+                 font=("Segoe UI", 10)).pack()
 
         self._log_w = scrolledtext.ScrolledText(
             self.root, height=11, width=74,
-            bg="#080808", fg="#404040", insertbackground="#404040",
-            font=("Consolas", 8), borderwidth=0, relief="flat",
+            bg="#0a0a0a", fg="#707070", insertbackground="#707070",
+            font=("Consolas", 9), borderwidth=0, relief="flat",
         )
         self._log_w.pack(padx=20, pady=(14, 20))
         self._log_w.configure(state="disabled")
@@ -146,7 +146,7 @@ class SetupUI:
         self._allow_close = True
         self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
         self.step("✗  Setup failed", 0)
-        self._log_w.configure(fg="#f87171")
+        self._log_w.configure(fg="#ff6b6b")
         self.log(f"\nERROR: {msg}")
         self.log(f"\nFull log saved to: {LOG_FILE}")
         self.log("Fix the issue and try again, or contact support.")
@@ -157,12 +157,24 @@ class SetupUI:
 # ── Setup logic ────────────────────────────────────────────────────────────────
 
 def _run(cmd, cwd=None, env=None, log=None) -> subprocess.CompletedProcess:
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, env=env)
-    if log:
-        for line in (r.stdout + r.stderr).splitlines():
-            if line.strip():
-                log(line)
-    return r
+    """Run a command, streaming output live so the UI never looks frozen."""
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,   # merge stderr into stdout
+        text=True,
+        cwd=cwd,
+        env=env,
+        bufsize=1,
+    )
+    lines = []
+    for line in proc.stdout:
+        line = line.rstrip()
+        lines.append(line)
+        if log and line.strip():
+            log(line)
+    proc.wait()
+    return subprocess.CompletedProcess(cmd, proc.returncode, "\n".join(lines), "")
 
 
 def do_setup(ui: "SetupUI | None", log_fn):

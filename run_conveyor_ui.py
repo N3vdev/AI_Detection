@@ -223,13 +223,13 @@ class ConveyorUIApp(QMainWindow):
 
         self._session_lbl = QLabel(self._session_id)
         self._session_lbl.setStyleSheet(
-            "color: #282828; font-size: 9px; letter-spacing: 0.5px;"
+            "color: #505050; font-size: 9px; letter-spacing: 0.5px;"
             "font-family: 'Consolas', 'Courier New', monospace;"
         )
 
         self._scan_status = QLabel("Scanning for cameras...")
         self._scan_status.setStyleSheet(
-            "color: #353535; font-size: 11px; font-style: italic;"
+            "color: #666; font-size: 11px; font-style: italic;"
         )
 
         _btn_h = 30

@@ -52,16 +52,16 @@ class CameraWidget(QFrame):
         self._dot = QLabel("●")
         self._dot.setFixedWidth(12)
         self._dot.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._dot.setStyleSheet("color: #1c1c1c; font-size: 9px; padding-top: 1px;")
+        self._dot.setStyleSheet("color: #333; font-size: 9px; padding-top: 1px;")
 
         self._cam_num = QLabel(f"CAM {cam_idx + 1}")
         self._cam_num.setStyleSheet(
-            "color: #2c2c2c; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;"
+            "color: #585858; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;"
         )
 
         self._cam_label = QLabel(CAM_LABELS[cam_idx])
         self._cam_label.setStyleSheet(
-            "color: #1a1a1a; font-size: 9px; letter-spacing: 2.5px; padding-left: 7px;"
+            "color: #3a3a3a; font-size: 9px; letter-spacing: 2.5px; padding-left: 7px;"
         )
 
         self._combo = QComboBox()
@@ -155,8 +155,8 @@ class CameraWidget(QFrame):
         icon = "⊘" if state == "NO SIGNAL" else "⊟"
         self._placeholder.setText(
             "<center>"
-            f"<p style='color:#191919; font-size:22px; margin:0 0 8px 0; line-height:1;'>{icon}</p>"
-            f"<p style='color:#1c1c1c; font-size:8px; letter-spacing:4px; font-weight:700; margin:0;'>{state}</p>"
+            f"<p style='color:#303030; font-size:22px; margin:0 0 8px 0; line-height:1;'>{icon}</p>"
+            f"<p style='color:#404040; font-size:8px; letter-spacing:4px; font-weight:700; margin:0;'>{state}</p>"
             "</center>"
         )
 
@@ -193,9 +193,9 @@ class CameraWidget(QFrame):
         self._loading_overlay.setText(
             "<div style='text-align:center; padding: 8px;'>"
             f"<p style='color:#22c55e; font-size:22px; margin:0 0 12px 0;'>{spin}</p>"
-            "<p style='color:#2a2a2a; font-size:8px; letter-spacing:3px; "
+            "<p style='color:#666; font-size:8px; letter-spacing:3px; "
             "font-weight:700; margin:0 0 8px 0;'>LOADING</p>"
-            f"<p style='color:#404040; font-size:9px; margin:0; "
+            f"<p style='color:#888; font-size:9px; margin:0; "
             f"font-family: Consolas, monospace;'>{step}</p>"
             "</div>"
         )
@@ -363,18 +363,18 @@ class CameraWidget(QFrame):
         if live:
             self._dot.setStyleSheet("color: #22c55e; font-size: 9px; padding-top: 1px;")
             self._cam_num.setStyleSheet(
-                "color: #6e6e6e; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;"
+                "color: #a0a0a0; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;"
             )
             self._cam_label.setStyleSheet(
-                "color: #2e2e2e; font-size: 9px; letter-spacing: 2.5px; padding-left: 7px;"
+                "color: #606060; font-size: 9px; letter-spacing: 2.5px; padding-left: 7px;"
             )
         else:
-            self._dot.setStyleSheet("color: #1c1c1c; font-size: 9px; padding-top: 1px;")
+            self._dot.setStyleSheet("color: #333; font-size: 9px; padding-top: 1px;")
             self._cam_num.setStyleSheet(
-                "color: #2c2c2c; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;"
+                "color: #585858; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;"
             )
             self._cam_label.setStyleSheet(
-                "color: #1a1a1a; font-size: 9px; letter-spacing: 2.5px; padding-left: 7px;"
+                "color: #3a3a3a; font-size: 9px; letter-spacing: 2.5px; padding-left: 7px;"
             )
 
 
@@ -395,7 +395,7 @@ class ResultBar(QWidget):
         self._seq.setFixedWidth(34)
         self._seq.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._seq.setStyleSheet(
-            "color: #242424; font-size: 13px; font-weight: 700;"
+            "color: #505050; font-size: 13px; font-weight: 700;"
             "font-family: 'Consolas', 'Courier New', monospace;"
         )
 
@@ -405,7 +405,7 @@ class ResultBar(QWidget):
         )
 
         self._product = QLabel()
-        self._product.setStyleSheet("color: #525252; font-size: 11px;")
+        self._product.setStyleSheet("color: #909090; font-size: 11px;")
         self._product.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
         self._status = QLabel()
@@ -431,7 +431,7 @@ class ResultBar(QWidget):
 
         self._time = QLabel()
         self._time.setStyleSheet(
-            "color: #282828; font-size: 9px;"
+            "color: #606060; font-size: 9px;"
             "font-family: 'Consolas', 'Courier New', monospace;"
         )
 
@@ -458,7 +458,7 @@ class ResultBar(QWidget):
         self._idle = QLabel("WAITING FOR PRODUCT")
         self._idle.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._idle.setStyleSheet(
-            "color: #1c1c1c; font-size: 10px; font-weight: 600; letter-spacing: 3.5px;"
+            "color: #404040; font-size: 10px; font-weight: 600; letter-spacing: 3.5px;"
         )
 
         main = QHBoxLayout(self)
@@ -475,7 +475,7 @@ class ResultBar(QWidget):
     def _make_chip() -> QLabel:
         w = QLabel()
         w.setStyleSheet(
-            "color: #2a2a2a; background: #0c0c0c; border: 1px solid #181818;"
+            "color: #505050; background: #0c0c0c; border: 1px solid #1e1e1e;"
             "border-radius: 4px; font-size: 9px; padding: 2px 8px;"
         )
         return w
@@ -484,20 +484,20 @@ class ResultBar(QWidget):
         has_value = bool(value) and str(value) not in ('—', 'None')
         if has_value:
             chip.setText(
-                f"<span style='color:#363636;'>{label}:</span>"
-                f"<span style='color:#747474;'> {value}</span>"
+                f"<span style='color:#707070;'>{label}:</span>"
+                f"<span style='color:#b0b0b0;'> {value}</span>"
             )
             chip.setStyleSheet(
-                "background: #111; border: 1px solid #1e1e1e;"
+                "background: #111; border: 1px solid #252525;"
                 "border-radius: 4px; font-size: 9px; padding: 2px 8px;"
             )
         else:
             chip.setText(
-                f"<span style='color:#222;'>{label}:</span>"
-                f"<span style='color:#222;'> —</span>"
+                f"<span style='color:#383838;'>{label}:</span>"
+                f"<span style='color:#383838;'> —</span>"
             )
             chip.setStyleSheet(
-                "background: #0c0c0c; border: 1px solid #181818;"
+                "background: #0c0c0c; border: 1px solid #1a1a1a;"
                 "border-radius: 4px; font-size: 9px; padding: 2px 8px;"
             )
 
