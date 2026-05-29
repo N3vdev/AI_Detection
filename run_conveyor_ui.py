@@ -5,9 +5,6 @@ PyQt6 desktop app — camera selector, live feeds, trigger detection, results.
 
 Run:
     python run_conveyor_ui.py [--session ID] [--max N]
-
-Phone cameras via USB:
-    Run setup_cameras.bat first (ADB port forward), then select them from the dropdowns.
 """
 
 import sys
@@ -53,7 +50,7 @@ from conveyor_ui.multi_detector import MultiCameraDetector
 NUM_CAMS = 4
 
 
-# ── Frame dispatcher — reads buffers at 10fps, emits QImages ─────────────────
+# ── Frame dispatcher — reads buffers at 15fps, emits QImages ─────────────────
 
 class FrameDispatcher(QThread):
     frame_ready = pyqtSignal(int, QImage)
@@ -62,7 +59,7 @@ class FrameDispatcher(QThread):
     def __init__(self, buffers, detector=None, parent=None):
         super().__init__(parent)
         self._buffers  = buffers
-        self._detector = detector   # MultiCameraDetector — provides boxes for all cams
+        self._detector = detector
         self._running  = True
         self._last_ok  = [False] * len(buffers)
 
@@ -90,13 +87,11 @@ class FrameDispatcher(QThread):
     @staticmethod
     def _draw_boxes(frame, boxes):
         h, w = frame.shape[:2]
-        color = (0, 220, 80)   # green
+        color = (0, 220, 80)
         for (x1n, y1n, x2n, y2n) in boxes:
             x1, y1 = int(x1n * w), int(y1n * h)
             x2, y2 = int(x2n * w), int(y2n * h)
-            # Main box (thin)
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
-            # L-shaped corner accents
             seg   = max(12, min(28, (x2 - x1) // 5))
             thick = 3
             for px, py, sx, sy in [
@@ -106,7 +101,6 @@ class FrameDispatcher(QThread):
                 (x2, y2, -seg,  0), (x2, y2,  0, -seg),
             ]:
                 cv2.line(frame, (px, py), (px + sx, py + sy), color, thick)
-            # Small label pill
             label = "PRODUCT"
             (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
             cv2.rectangle(frame, (x1, y1 - th - 8), (x1 + tw + 8, y1), color, -1)
@@ -122,9 +116,10 @@ class FrameDispatcher(QThread):
 # ── Thread-safe bridge: worker thread → Qt signals ───────────────────────────
 
 class EventBridge(QObject):
-    trigger_fired = pyqtSignal(int)
-    result_ready  = pyqtSignal(dict)
-    system_ready  = pyqtSignal()
+    trigger_fired    = pyqtSignal(int)
+    result_ready     = pyqtSignal(dict)
+    system_ready     = pyqtSignal()
+    loading_progress = pyqtSignal(str)
 
     def on_trigger(self, cam_idx):
         self.trigger_fired.emit(cam_idx)
@@ -134,6 +129,9 @@ class EventBridge(QObject):
 
     def on_system_ready(self):
         self.system_ready.emit()
+
+    def on_progress(self, msg):
+        self.loading_progress.emit(msg)
 
 
 # ── Main window ───────────────────────────────────────────────────────────────
@@ -149,9 +147,9 @@ class ConveyorUIApp(QMainWindow):
         self._bridge       = EventBridge()
         self._session_running = False
         self._prefs        = _load_prefs()
-        self._snap_cooldown = False
+        self._scan_cooldown = False
 
-        self.setWindowTitle("AI Product Inspector — Conveyor")
+        self.setWindowTitle("AI Product Inspector")
         self.setMinimumSize(1120, 760)
         self.resize(1280, 860)
         self._apply_style()
@@ -180,7 +178,6 @@ class ConveyorUIApp(QMainWindow):
 
         main.addWidget(self._build_header())
 
-        # Camera grid
         grid_w = QWidget()
         grid_w.setStyleSheet("background: #090909;")
         grid = QGridLayout(grid_w)
@@ -207,11 +204,7 @@ class ConveyorUIApp(QMainWindow):
         header = QWidget()
         header.setObjectName("app_header")
         header.setFixedHeight(56)
-        header.setStyleSheet(
-            "#app_header { background: #0d0d0d; border-bottom: 1px solid #181818; }"
-        )
 
-        # Small "AI" badge — accent pill on the far left
         badge = QLabel("AI")
         badge.setFixedSize(28, 22)
         badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -274,10 +267,10 @@ class ConveyorUIApp(QMainWindow):
         )
         self._btn_stop.clicked.connect(self.close)
 
-        self._btn_snap = QPushButton("⊕  SNAP")
-        self._btn_snap.setFixedSize(82, _btn_h)
-        self._btn_snap.hide()
-        self._btn_snap.setStyleSheet(
+        self._btn_scan = QPushButton("⊕  SCAN")
+        self._btn_scan.setFixedSize(84, _btn_h)
+        self._btn_scan.hide()
+        self._btn_scan.setStyleSheet(
             "QPushButton {"
             "  background: #060e1e; color: #38bdf8; border: 1px solid #0d2a50;"
             "  border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px;"
@@ -290,7 +283,7 @@ class ConveyorUIApp(QMainWindow):
             "}"
             "QPushButton:pressed { background: #050c16; }"
         )
-        self._btn_snap.clicked.connect(self._do_manual_snap)
+        self._btn_scan.clicked.connect(self._do_manual_scan)
 
         row = QHBoxLayout(header)
         row.setContentsMargins(16, 0, 14, 0)
@@ -302,7 +295,7 @@ class ConveyorUIApp(QMainWindow):
         row.addSpacing(8)
         row.addWidget(self._scan_status)
         row.addStretch()
-        row.addWidget(self._btn_snap)
+        row.addWidget(self._btn_scan)
         row.addSpacing(4)
         row.addWidget(self._btn_start)
         row.addWidget(self._btn_stop)
@@ -312,7 +305,6 @@ class ConveyorUIApp(QMainWindow):
     # ── Camera scanner ────────────────────────────────────────────────────────
 
     def _start_scanner(self):
-        # Tell all widgets scanning is starting so they clear the placeholder text
         for w in self._cam_widgets:
             w.populate_start()
 
@@ -325,7 +317,6 @@ class ConveyorUIApp(QMainWindow):
     def _on_camera_found(self, label: str, source):
         for w in self._cam_widgets:
             w.add_camera_option(label, source)
-        # Enable START as soon as there's at least one camera available
         self._btn_start.setEnabled(True)
 
     def _on_source_changed(self, cam_idx: int, source):
@@ -337,7 +328,7 @@ class ConveyorUIApp(QMainWindow):
         _save_prefs(self._prefs)
 
     def _on_scan_complete(self):
-        count = self._cam_widgets[0]._combo.count() - 1  # minus placeholder
+        count = self._cam_widgets[0]._combo.count() - 1
         if count == 0:
             self._scan_status.setText("No cameras found")
             self._scan_status.setStyleSheet("color: #f87171; font-size: 11px; font-style: normal;")
@@ -350,7 +341,6 @@ class ConveyorUIApp(QMainWindow):
             )
         for w in self._cam_widgets:
             w.scan_complete()
-        # Restore saved selections
         for i, w in enumerate(self._cam_widgets):
             saved = self._prefs.get(f"cam_{i}")
             if saved is not None:
@@ -359,8 +349,6 @@ class ConveyorUIApp(QMainWindow):
     # ── Session start ─────────────────────────────────────────────────────────
 
     def _start_session(self):
-        # Always pass all 4 slots with None for unassigned — preserves slot→buffer
-        # index mapping so cam 4 stays in widget 4 rather than collapsing to slot 1.
         sources = [w._selected_source for w in self._cam_widgets]
 
         if not any(s is not None for s in sources):
@@ -371,10 +359,9 @@ class ConveyorUIApp(QMainWindow):
         self._session_running = True
         self._btn_start.hide()
         self._btn_stop.show()
-        self._scan_status.setText("Loading AI models...")
+        self._scan_status.setText("Starting up...")
         self._scan_status.setStyleSheet("color: #444; font-size: 11px; font-style: italic;")
 
-        # Only show loading overlay on slots that actually have a camera assigned
         for w in self._cam_widgets:
             if w._selected_source is not None:
                 w.prepare_for_session()
@@ -384,24 +371,32 @@ class ConveyorUIApp(QMainWindow):
         self._bridge.trigger_fired.connect(self._on_trigger)
         self._bridge.result_ready.connect(self._on_result)
         self._bridge.system_ready.connect(self._on_system_ready)
+        self._bridge.loading_progress.connect(self._on_loading_progress)
 
         def run():
             self._system = ConveyorSystem(
                 camera_indices=sources,
                 on_trigger=self._bridge.on_trigger,
                 on_result=self._bridge.on_result,
+                on_progress=self._bridge.on_progress,
             )
             self._system.start(self._session_id)
-
-            # Signal main thread — detector/dispatcher created there so Qt objects
-            # are always constructed on the GUI thread
             self._bridge.on_system_ready()
-
             self._system.run_session(self._max_products)
 
         threading.Thread(target=run, daemon=True, name="ConveyorSession").start()
 
     # ── Qt slots ──────────────────────────────────────────────────────────────
+
+    def _on_loading_progress(self, msg: str):
+        # Truncate long messages for the header label
+        display = msg if len(msg) <= 52 else msg[:50] + "..."
+        self._scan_status.setText(display)
+        self._scan_status.setStyleSheet(
+            "color: #3a3a3a; font-size: 10px; font-style: italic;"
+        )
+        for w in self._cam_widgets:
+            w.set_loading_step(msg)
 
     def _on_frame(self, cam_idx: int, qimage: QImage):
         if cam_idx < len(self._cam_widgets):
@@ -438,23 +433,23 @@ class ConveyorUIApp(QMainWindow):
         for w in self._cam_widgets:
             w.on_session_start()
 
-        self._btn_snap.show()
+        self._btn_scan.show()
 
-    def _do_manual_snap(self):
-        if not self._system or self._snap_cooldown:
+    def _do_manual_scan(self):
+        if not self._system or self._scan_cooldown:
             return
-        ok = self._system.manual_snap()
-        if ok:
-            self._snap_cooldown = True
-            self._btn_snap.setEnabled(False)
-            for w in self._cam_widgets:
-                w.flash_trigger()
-                w.show_scanning()
-            QTimer.singleShot(1200, self._snap_ready)
+        # Respond instantly — snap happens in background thread
+        self._scan_cooldown = True
+        self._btn_scan.setEnabled(False)
+        for w in self._cam_widgets:
+            w.flash_trigger()
+            w.show_scanning()
+        QTimer.singleShot(1200, self._scan_ready)
+        threading.Thread(target=self._system.manual_snap, daemon=True).start()
 
-    def _snap_ready(self):
-        self._snap_cooldown = False
-        self._btn_snap.setEnabled(True)
+    def _scan_ready(self):
+        self._scan_cooldown = False
+        self._btn_scan.setEnabled(True)
 
     def _on_trigger(self, cam_idx: int):
         if cam_idx < len(self._cam_widgets):
@@ -493,14 +488,14 @@ def main():
     app.setStyle("Fusion")
 
     palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window,        QColor("#0d0d0d"))
-    palette.setColor(QPalette.ColorRole.WindowText,    QColor("#e0e0e0"))
-    palette.setColor(QPalette.ColorRole.Base,          QColor("#111111"))
-    palette.setColor(QPalette.ColorRole.Text,          QColor("#e0e0e0"))
-    palette.setColor(QPalette.ColorRole.Button,        QColor("#1a1a1a"))
-    palette.setColor(QPalette.ColorRole.ButtonText,    QColor("#e0e0e0"))
-    palette.setColor(QPalette.ColorRole.Highlight,     QColor("#22c55e"))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#000000"))
+    palette.setColor(QPalette.ColorRole.Window,           QColor("#0d0d0d"))
+    palette.setColor(QPalette.ColorRole.WindowText,       QColor("#e0e0e0"))
+    palette.setColor(QPalette.ColorRole.Base,             QColor("#111111"))
+    palette.setColor(QPalette.ColorRole.Text,             QColor("#e0e0e0"))
+    palette.setColor(QPalette.ColorRole.Button,           QColor("#1a1a1a"))
+    palette.setColor(QPalette.ColorRole.ButtonText,       QColor("#e0e0e0"))
+    palette.setColor(QPalette.ColorRole.Highlight,        QColor("#22c55e"))
+    palette.setColor(QPalette.ColorRole.HighlightedText,  QColor("#000000"))
     app.setPalette(palette)
 
     window = ConveyorUIApp(session_id, args.max_products)

@@ -18,13 +18,14 @@ class InspectionTask:
 
 
 class InspectionWorker(threading.Thread):
-    def __init__(self, queue, result_writer, config, on_result=None):
+    def __init__(self, queue, result_writer, config, on_result=None, on_progress=None):
         super().__init__(daemon=True, name="InspectionWorker")
         self.queue = queue
         self.result_writer = result_writer
         self.config = config
-        self._on_result = on_result  # callable(result_dict) — called after every write
-        self._stop_event = threading.Event()
+        self._on_result   = on_result
+        self._on_progress = on_progress
+        self._stop_event  = threading.Event()
         self._ready_event = threading.Event()
         self._ai = None
 
@@ -34,13 +35,15 @@ class InspectionWorker(threading.Thread):
 
     def _load_models(self):
         from src.detect import AIInspectionSystem
-        print("[System] Loading AI models — this may take a minute on first run...")
+        if self._on_progress:
+            self._on_progress("Loading AI models...")
         self._ai = AIInspectionSystem(
             barcode_model_path=self.config.BARCODE_DETECTOR_MODEL,
             qwen_model_id=self.config.QWEN_MODEL_ID,
             world_model_id=self.config.YOLO_WORLD_MODEL,
             crnn_model_path=self.config.DOTTED_OCR_MODEL,
             debug=self.config.SAVE_DEBUG_SNAPSHOTS,
+            on_progress=self._on_progress,
         )
 
     def run(self):

@@ -193,26 +193,34 @@ class AIInspectionSystem:
         world_model_id='yolov8m-worldv2.pt',
         crnn_model_path='models/dotted_ocr_retrained.pth',
         debug=True,
+        on_progress=None,
     ):
         """
         debug=True  → save per-step snapshots to debug_snapshots/ (demo / dev use)
         debug=False → skip all debug writes (production conveyor — saves disk + minor speedup)
+        on_progress → callable(str) emitted at each loading step for UI feedback
         """
+        def _prog(msg):
+            print(f"[System] {msg}")
+            if on_progress:
+                on_progress(msg)
+
         self._debug = debug
-        print("[System] Initializing AI Inspection Pipeline...")
+        _prog("Initializing AI pipeline...")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"[System] Device: {self.device.upper()}")
+        _prog(f"Device: {self.device.upper()}")
 
         # ── Barcode YOLO ───────────────────────────────────────────────────────
+        _prog("Loading barcode detector...")
         self.barcode_detector = None
         if os.path.exists(barcode_model_path):
             self.barcode_detector = YOLO(barcode_model_path)
-            print("[System] Barcode detector loaded.")
+            _prog("Barcode detector ready.")
         else:
             print(f"[Warning] Barcode model not found: {barcode_model_path}")
 
         # ── Qwen2.5-VL ────────────────────────────────────────────────────────
-        print(f"[System] Loading {qwen_model_id}...")
+        _prog("Loading Qwen VLM processor...")
         self.qwen_processor = _VLProcessor.from_pretrained(qwen_model_id)
 
         load_kwargs = dict(device_map="auto")
@@ -220,9 +228,8 @@ class AIInspectionSystem:
         if self.device == "cuda":
             free_vram, _ = torch.cuda.mem_get_info(0)
             free_gb = free_vram / 1024 ** 3
-            print(f"[System] Free VRAM: {free_gb:.1f} GB")
+            _prog(f"Free VRAM: {free_gb:.1f} GB")
             if free_gb < 12.0:
-                # 4-bit quantization — fits in ~5 GB, minor accuracy loss
                 try:
                     from transformers import BitsAndBytesConfig
                     load_kwargs["quantization_config"] = BitsAndBytesConfig(
@@ -231,37 +238,36 @@ class AIInspectionSystem:
                         bnb_4bit_use_double_quant=True,
                         bnb_4bit_quant_type="nf4",
                     )
-                    print("[System] 4-bit quantization enabled (low VRAM mode).")
+                    _prog("4-bit quantization enabled (low VRAM).")
                 except ImportError:
                     print("[Warning] bitsandbytes not installed — loading in float16 (may OOM).")
                     load_kwargs["torch_dtype"] = torch.float16
             else:
                 load_kwargs["torch_dtype"] = torch.float16
-                print("[System] Loading in float16.")
+                _prog("Loading Qwen in float16.")
         else:
             load_kwargs["torch_dtype"] = torch.float32
 
         try:
             import flash_attn  # noqa
             load_kwargs["attn_implementation"] = "flash_attention_2"
-            print("[System] Flash Attention 2 enabled.")
+            _prog("Flash Attention 2 enabled.")
         except ImportError:
             pass
 
+        _prog("Loading Qwen VLM model  (largest step)...")
         self.qwen_model = _VLModel.from_pretrained(qwen_model_id, **load_kwargs).eval()
-        print(f"[System] {qwen_model_id} loaded.")
+        _prog("Qwen VLM ready.")
 
-        # Higher max_pixels on CUDA gives Qwen better resolution for small label text.
-        # CPU stays at 640 to avoid memory pressure.
         _max_side = 960 if self.device == "cuda" else 640
         self.qwen_processor.image_processor.max_pixels = _max_side * 28 * 28
         self.qwen_processor.image_processor.min_pixels = 4 * 28 * 28
 
         # ── EasyOCR ───────────────────────────────────────────────────────────
-        print("[System] Loading EasyOCR...")
+        _prog("Loading EasyOCR engine...")
         self.ocr_reader = easyocr.Reader(['en'], gpu=(self.device == 'cuda'), verbose=False)
         self.ocr_ready = True
-        print("[System] EasyOCR loaded.")
+        _prog("EasyOCR ready.")
 
         torch.set_num_threads(os.cpu_count() or 4)
 
@@ -269,31 +275,32 @@ class AIInspectionSystem:
         self.crnn_model = None
         if crnn_model_path and os.path.exists(crnn_model_path):
             try:
+                _prog("Loading CRNN dotted-OCR model...")
                 from src.ocr_model import CRNN as _CRNN
-                _n_class = len(_CRNN_ALPHABET) + 1   # +1 for CTC blank token
+                _n_class = len(_CRNN_ALPHABET) + 1
                 self.crnn_model = _CRNN(32, 1, _n_class, 256)
                 self.crnn_model.load_state_dict(
                     torch.load(crnn_model_path, map_location='cpu')
                 )
                 self.crnn_model.eval()
                 self.crnn_model.to(self.device)
-                print("[System] CRNN dotted-OCR loaded.")
+                _prog("CRNN dotted-OCR ready.")
             except Exception as e:
                 print(f"[Warning] CRNN load failed: {e}")
-        else:
-            print(f"[Warning] CRNN model not found: {crnn_model_path}")
 
         # ── YOLO-World open-vocabulary region detector ─────────────────────────
         self.world_detector = None
         if world_model_id:
             try:
+                _prog(f"Loading YOLO-World detector...")
                 from ultralytics import YOLOWorld
-                print(f"[System] Loading YOLO-World ({world_model_id})...")
                 self.world_detector = YOLOWorld(world_model_id)
                 self.world_detector.set_classes(_WORLD_CLASSES)
-                print("[System] YOLO-World loaded.")
+                _prog("YOLO-World ready.")
             except Exception as e:
                 print(f"[Warning] YOLO-World failed to load: {e}")
+
+        _prog("All models loaded — ready to inspect.")
 
         # ── Debug snapshot directory ───────────────────────────────────────────
         self._debug_dir = os.path.join(

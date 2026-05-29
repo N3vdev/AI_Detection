@@ -13,7 +13,7 @@ from live.trigger_detector import TriggerDetector
 
 
 class ConveyorSystem:
-    def __init__(self, camera_indices=None, on_trigger=None, on_result=None):
+    def __init__(self, camera_indices=None, on_trigger=None, on_result=None, on_progress=None):
         self._on_trigger = on_trigger  # callable(cam_idx) — fired when product detected
         self._on_result  = on_result   # callable(result_dict) — fired after inspection
         sources = camera_indices if camera_indices is not None else config.CAMERA_INDICES
@@ -49,7 +49,8 @@ class ConveyorSystem:
         self._inspection_queue = queue.Queue(maxsize=config.INSPECTION_QUEUE_MAX)
         self._writer = ResultWriter(config.DB_PATH, config.JSON_LOG_PATH)
         self._worker = InspectionWorker(self._inspection_queue, self._writer, config,
-                                        on_result=self._on_result)
+                                        on_result=self._on_result,
+                                        on_progress=on_progress)
         self.auto_trigger = getattr(config, 'TRIGGER_AUTO', True)
         self._seq = 0
 

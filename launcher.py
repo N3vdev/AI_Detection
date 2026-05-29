@@ -193,7 +193,12 @@ def do_setup(ui: "SetupUI | None", log_fn):
             # Enable site-packages so pip-installed packages are importable
             for pth in PYTHON_DIR.glob("python*._pth"):
                 txt = pth.read_text()
-                pth.write_text(txt.replace("#import site", "import site"))
+                # Try uncommenting the existing directive
+                txt = txt.replace("#import site", "import site")
+                # Also explicitly add the path — works even if the directive format differs
+                if "Lib\\site-packages" not in txt and "Lib/site-packages" not in txt:
+                    txt = txt.rstrip() + "\nLib\\site-packages\n"
+                pth.write_text(txt)
             log("Runtime extracted.")
         else:
             log("Runtime already present — skipping extraction.")

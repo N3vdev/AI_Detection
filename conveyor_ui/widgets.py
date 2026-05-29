@@ -33,7 +33,7 @@ _FEED_STYLE = (
 
 
 class CameraWidget(QFrame):
-    source_changed = pyqtSignal(int, object)   # cam_idx, source (or None)
+    source_changed = pyqtSignal(int, object)
 
     def __init__(self, cam_idx: int, parent=None):
         super().__init__(parent)
@@ -41,6 +41,7 @@ class CameraWidget(QFrame):
         self._selected_source = None
         self._preview_cap = None
         self._session_active = False
+        self._loading_step_text = "Loading models..."
 
         self.setObjectName("cam_widget")
         self.setMinimumSize(300, 220)
@@ -161,8 +162,14 @@ class CameraWidget(QFrame):
 
     # ── Loading animation ─────────────────────────────────────────────────────
 
+    def set_loading_step(self, text: str):
+        """Called from UI thread via signal to show the current loading step."""
+        self._loading_step_text = text
+        self._update_loading_text()
+
     def show_loading(self):
         self._loading_step = 0
+        self._loading_step_text = "Loading models..."
         self._update_loading_text()
         self._reposition_overlays()
         self._loading_overlay.show()
@@ -179,10 +186,17 @@ class CameraWidget(QFrame):
 
     def _update_loading_text(self):
         spin = _SPIN[self._loading_step % len(_SPIN)]
+        step = self._loading_step_text
+        # Wrap long text at ~34 chars
+        if len(step) > 34:
+            step = step[:32] + "…"
         self._loading_overlay.setText(
-            "<div style='text-align:center; line-height:2.4;'>"
-            "<span style='color:#1e1e1e; font-size:8px; letter-spacing:4px;'>LOADING MODELS</span><br>"
-            f"<span style='color:#22c55e; font-size:18px;'>{spin}</span>"
+            "<div style='text-align:center; padding: 8px;'>"
+            f"<p style='color:#22c55e; font-size:22px; margin:0 0 12px 0;'>{spin}</p>"
+            "<p style='color:#2a2a2a; font-size:8px; letter-spacing:3px; "
+            "font-weight:700; margin:0 0 8px 0;'>LOADING</p>"
+            f"<p style='color:#404040; font-size:9px; margin:0; "
+            f"font-family: Consolas, monospace;'>{step}</p>"
             "</div>"
         )
 
@@ -335,10 +349,11 @@ class CameraWidget(QFrame):
         tw, th = self._feed.width(), self._feed.height()
         if tw <= 0 or th <= 0:
             return pixmap
+        # FastTransformation — no filter, GPU-friendly, eliminates UI lag
         scaled = pixmap.scaled(
             tw, th,
             Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-            Qt.TransformationMode.SmoothTransformation,
+            Qt.TransformationMode.FastTransformation,
         )
         x = (scaled.width()  - tw) // 2
         y = (scaled.height() - th) // 2
@@ -371,13 +386,11 @@ class ResultBar(QWidget):
         self.setObjectName("result_bar")
         self.setFixedHeight(84)
 
-        # Left accent bar — color tracks result type (green / blue / amber)
         self._accent = QWidget()
         self._accent.setFixedWidth(3)
         self._accent.setFixedHeight(52)
         self._accent.setStyleSheet("background: #1e1e1e; border-radius: 2px;")
 
-        # Sequence number
         self._seq = QLabel()
         self._seq.setFixedWidth(34)
         self._seq.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -386,18 +399,15 @@ class ResultBar(QWidget):
             "font-family: 'Consolas', 'Courier New', monospace;"
         )
 
-        # Brand name
         self._brand = QLabel()
         self._brand.setStyleSheet(
             "color: #22c55e; font-size: 15px; font-weight: 700; letter-spacing: 0.2px;"
         )
 
-        # Product description
         self._product = QLabel()
         self._product.setStyleSheet("color: #525252; font-size: 11px;")
         self._product.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
-        # Status badge pill
         self._status = QLabel()
         self._status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._status.setFixedHeight(20)
@@ -415,7 +425,6 @@ class ResultBar(QWidget):
         row1.addWidget(self._product, stretch=1)
         row1.addWidget(self._status)
 
-        # Field chips
         self._expiry = self._make_chip()
         self._mfg    = self._make_chip()
         self._batch  = self._make_chip()
@@ -427,7 +436,7 @@ class ResultBar(QWidget):
         )
 
         row2 = QHBoxLayout()
-        row2.setContentsMargins(44, 0, 0, 0)   # indent aligns under brand
+        row2.setContentsMargins(44, 0, 0, 0)
         row2.setSpacing(5)
         row2.addWidget(self._expiry)
         row2.addWidget(self._mfg)
@@ -512,7 +521,6 @@ class ResultBar(QWidget):
 
         self._time.setText(f"{ms/1000:.1f}s" if ms else "")
 
-        # Colors by result type
         if "Barcode" in status:
             fg, bg, bd = "#38bdf8", "#060f1a", "#0d2844"
         elif "Incomplete" in status or "Error" in status:
@@ -537,7 +545,6 @@ class ResultBar(QWidget):
         self._idle.hide()
         self._content.show()
 
-        # Brief background flash on new result
         self.setStyleSheet(f"#result_bar {{ background: {bg}; border-top: 1px solid {bd}; }}")
         QTimer.singleShot(380, lambda: self.setStyleSheet(
             "#result_bar { background: #0b0b0b; border-top: 1px solid #181818; }"

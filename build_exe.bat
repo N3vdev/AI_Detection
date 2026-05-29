@@ -62,7 +62,12 @@ if not exist "%GETPIP%" (
     echo [OK] %GETPIP% already present.
 )
 
-:: ── 5. Build EXE ──────────────────────────────────────────────────────────────
+:: ── 5. Clean previous build artifacts ────────────────────────────────────────
+if exist "build\AI_Inspector"    rmdir /s /q "build\AI_Inspector"
+if exist "dist\AI_Inspector.exe" del /q "dist\AI_Inspector.exe"
+if exist "AI_Inspector.spec"     del /q "AI_Inspector.spec"
+
+:: ── 6. Build EXE ──────────────────────────────────────────────────────────────
 echo.
 echo [Build] Running PyInstaller...
 echo.
@@ -81,7 +86,7 @@ if errorlevel 1 (
     pause & exit /b 1
 )
 
-:: ── 6. Assemble distribution folder ──────────────────────────────────────────
+:: ── 7. Assemble distribution folder ──────────────────────────────────────────
 echo.
 echo [Package] Assembling distribution folder...
 
