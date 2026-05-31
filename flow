@@ -1,53 +1,39 @@
-to 1. However, `early_stopping` is set to `True` -- this flag is only used in beam-based generation modes. You should set `num_beams>1` or unset `early_stopping`.
-  warnings.warn(
-[Florence-2] us in
-drogederm
-100
-OilFree Daily
-Face Moisturizer
-by
-LOW GREASY &
-TENED SKIN
-Ce
-hydrozonic acid
-yaluronic acid.
-cremedes
-creme de vitamín
-derma -
-[Phase 3] Qwen2.5-VL on 2 image(s)...
-[Qwen] Tokenizing 2 image(s)...
-[Qwen] Input tokens: 2255 — running inference...
-C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\transformers\generation\configuration_utils.py:629: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `1e-06` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
-  warnings.warn(
-C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\bitsandbytes\backends\cuda\ops.py:468: FutureWarning: _check_is_size will be removed in a future PyTorch release along with guard_size_oblivious.     Use _check(i >= 0) instead.
-  torch._check_is_size(blocksize)
-[Qwen] Done in 99.2s
+[Phase 2] Running Florence-2 OCR...
+[Florence-2] ELECTRICAL USE ONLY
+Add contact with eps &
+Keep of use of child & children.
+wanted by Honorable Consumer Ltd. Ltd. & Children.
+Capitol Hydrochloride, Hydrochloric Acid 59, Gurgaon,
+Capidil Hydrochlora
+[Phase 3] Qwen2.5-VL on 1 image(s)...
+[Qwen] Tokenizing 1 image(s)...
+[Qwen] Input tokens: 1510 — running inference...
+[Qwen] Done in 6.1s
 Response:
-Brand: derma
-Product: Oil Free Daily Face Moisturizer
-Category: Skincare
-Expiry: NONE
-MFG: NONE
-Batch: NONE
+Droidream
+Moisturizer
+Skincare
+NONE
+NONE
+779262
 
-[Debug] Snapshots saved → debug_snapshots/20260531_131718_004/
-[Worker] #1 VLM: derma / Oil Free Daily Face Moisturizer / exp=None (111008ms)
+[Debug] Snapshots saved → debug_snapshots/20260531_132743_364/
+[Worker] #3 VLM: None / None / exp=None (15049ms)
 
-[Conveyor] Session complete — 1 products captured.
+[Conveyor] Session complete — 3 products captured.
 
 ======================================================
   SESSION SUMMARY
 ======================================================
-  Session          : truck_2026-05-31_dec1a3
-  Total Products   : 1
+  Session          : truck_2026-05-31_e40980
+  Total Products   : 3
   Barcode Found    : 0
-  VLM Inspected    : 1
-  Incomplete       : 0
+  VLM Inspected    : 3
+  Incomplete       : 1
 ======================================================
 [Conveyor] Draining inspection queue...
-[Conveyor] Shutdown complete.
-[Camera-1] Stopped.
 [Camera-0] Stopped.
+[Conveyor] Shutdown complete.
 [Trigger] Loading yolo11n.pt on CPU...
 [Trigger] Ready.
 [System] Loading AI models, please wait...
@@ -55,39 +41,47 @@ Batch: NONE
 [System] Device: CUDA
 [System] Loading barcode detector...
 [System] Barcode detector ready.
-[Warning] WeChat barcode init failed: module 'cv2.wechat_qrcode' has no attribute 'WeChatQRCode'
 [System] Loading Qwen VLM processor...
-[System] Free VRAM: 2.3 GB
+[System] Free VRAM: 4.9 GB
 [System] 4-bit quantization enabled (low VRAM).
 [System] Loading Qwen VLM model  (largest step)...
-Exception in thread InspectionWorker:
+Loading checkpoint shards: 100%|██████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:03<00:00,  1.83s/it]
+[System] Qwen VLM ready.
+[System] Loading Florence-2 OCR...
+[System] Florence-2 loaded.
+[System] All models loaded — ready to inspect.
+[System] Ready.
+
+[System] All models loaded. Ready to inspect.
+
+
+[Conveyor] Session : truck_2026-05-31_b38544
+[Conveyor] Cameras : ['http://192.168.0.199:8080/video']
+[Conveyor] Max     : 100 products
+
+[Conveyor] Running — UI mode active.
+
+Exception in thread Camera-0:
 Traceback (most recent call last):
   File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1041, in _bootstrap_inner
     self.run()
     ~~~~~~~~^^
-  File "D:\Codes\AI Detection Model\live\inspection_worker.py", line 50, in run
-    self._load_models()
-    ~~~~~~~~~~~~~~~~~^^
-  File "D:\Codes\AI Detection Model\live\inspection_worker.py", line 40, in _load_models
-    self._ai = AIInspectionSystem(
-               ~~~~~~~~~~~~~~~~~~^
-        barcode_model_path=self.config.BARCODE_DETECTOR_MODEL,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<4 lines>...
-        on_progress=self._on_progress,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "D:\Codes\AI Detection Model\src\detect.py", line 271, in __init__
-    self.qwen_model = _VLModel.from_pretrained(qwen_model_id, **load_kwargs).eval()
-                      ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\transformers\modeling_utils.py", line 262, in _wrapper
-    return func(*args, **kwargs)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\transformers\modeling_utils.py", line 4262, in from_pretrained
-    hf_quantizer.validate_environment(device_map=device_map)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\transformers\quantizers\quantizer_bnb_4bit.py", line 103, in validate_environment
-    raise ValueError(
-    ...<6 lines>...
-    )
-ValueError: Some modules are dispatched on the CPU or the disk. Make sure you have enough GPU RAM to fit the quantized model. If you want to dispatch the model on the CPU or the disk while keeping these modules in 32-bit, you need to set `llm_int8_enable_fp32_cpu_offload=True` and pass a custom `device_map` to `from_pretrained`. Check https://huggingface.co/docs/transformers/main/en/main_classes/quantization#offload-between-cpu-and-gpu for more details. 
+  File "D:\Codes\AI Detection Model\live\camera_thread.py", line 30, in run
+    self._cap = self._open()
+                ~~~~~~~~~~^^
+  File "D:\Codes\AI Detection Model\live\camera_thread.py", line 22, in _open
+    cap.set(cv2.CAP_PROP_FPS, self.fps)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: Unknown C++ exception from OpenCV code
+Exception in thread Camera-1:
+Traceback (most recent call last):
+  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1041, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+  File "D:\Codes\AI Detection Model\live\camera_thread.py", line 30, in run
+    self._cap = self._open()
+                ~~~~~~~~~~^^
+  File "D:\Codes\AI Detection Model\live\camera_thread.py", line 22, in _open
+    cap.set(cv2.CAP_PROP_FPS, self.fps)
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+cv2.error: Unknown C++ exception from OpenCV code
