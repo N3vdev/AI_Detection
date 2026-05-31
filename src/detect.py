@@ -821,8 +821,8 @@ class AIInspectionSystem:
         # This captures text from a different face (e.g. dates on bottom, brand on front).
         secondary_ocr_img = None
         if len(loaded) > 1:
-            other_frames = [img for _, img in loaded
-                            if img is not (best_label_frame or sharpest_img)]
+            _exclude = best_label_frame if best_label_frame is not None else sharpest_img
+            other_frames = [img for _, img in loaded if img is not _exclude]
             if other_frames:
                 other_sharpest = max(other_frames, key=lambda x: cv2.Laplacian(
                     cv2.cvtColor(x, cv2.COLOR_BGR2GRAY), cv2.CV_64F
