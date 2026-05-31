@@ -53,6 +53,7 @@ class ConveyorSystem:
                                         on_progress=on_progress)
         self.auto_trigger = getattr(config, 'TRIGGER_AUTO', True)
         self._seq = 0
+        self._stop_requested = False
 
     def start(self, session_id):
         self._session_id = session_id
@@ -99,7 +100,7 @@ class ConveyorSystem:
         _last_yolo = 0.0
 
         try:
-            while self._seq < max_products:
+            while self._seq < max_products and not self._stop_requested:
                 frame = trigger_buf.get_closest(time.monotonic(), window_ms=100)
                 if frame is None:
                     time.sleep(0.005)
@@ -189,6 +190,9 @@ class ConveyorSystem:
             cv2.destroyAllWindows()
         print(f"\n[Conveyor] Session complete — {self._seq} products captured.")
         self._print_summary()
+
+    def request_stop(self):
+        self._stop_requested = True
 
     def manual_snap(self):
         """Capture frames from all cameras right now and queue for inspection. Thread-safe."""

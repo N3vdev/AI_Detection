@@ -282,6 +282,21 @@ class CameraWidget(QFrame):
         self._stop_preview()
         self.hide_loading()
 
+    def restore_after_session(self):
+        self._session_active = False
+        self.hide_loading()
+        self.hide_scanning()
+        self.setStyleSheet(_CAM_BASE_STYLE)
+        self._combo.setEnabled(True)
+        if self._selected_source is not None:
+            # Delay restart so the camera device has time to be released
+            QTimer.singleShot(800, lambda: self._start_preview(self._selected_source))
+        else:
+            self._feed.hide()
+            self._set_placeholder_text("NO INPUT")
+            self._placeholder.show()
+            self._set_dot(False)
+
     # ── Frame updates (from FrameDispatcher) ──────────────────────────────────
 
     def set_frame(self, qimage: QImage):

@@ -120,6 +120,7 @@ class EventBridge(QObject):
     result_ready     = pyqtSignal(dict)
     system_ready     = pyqtSignal()
     loading_progress = pyqtSignal(str)
+    session_stopped  = pyqtSignal()
 
     def on_trigger(self, cam_idx):
         self.trigger_fired.emit(cam_idx)
@@ -133,6 +134,9 @@ class EventBridge(QObject):
     def on_progress(self, msg):
         self.loading_progress.emit(msg)
 
+    def on_session_stopped(self):
+        self.session_stopped.emit()
+
 
 # ── Main window ───────────────────────────────────────────────────────────────
 
@@ -144,10 +148,19 @@ class ConveyorUIApp(QMainWindow):
         self._system       = None
         self._dispatcher   = None
         self._detector     = None
-        self._bridge       = EventBridge()
+        self._bridge          = EventBridge()
         self._session_running = False
-        self._prefs        = _load_prefs()
-        self._scan_cooldown = False
+        self._stop_requested  = False
+        self._closing         = False
+        self._prefs           = _load_prefs()
+        self._scan_cooldown   = False
+
+        # Connect signals once — reconnecting on each session causes double-fire
+        self._bridge.trigger_fired.connect(self._on_trigger)
+        self._bridge.result_ready.connect(self._on_result)
+        self._bridge.system_ready.connect(self._on_system_ready)
+        self._bridge.loading_progress.connect(self._on_loading_progress)
+        self._bridge.session_stopped.connect(self._on_session_stopped)
 
         self.setWindowTitle("AI Product Inspector")
         self.setMinimumSize(1120, 760)
@@ -265,7 +278,7 @@ class ConveyorUIApp(QMainWindow):
             "}"
             "QPushButton:pressed { background: #130606; }"
         )
-        self._btn_stop.clicked.connect(self.close)
+        self._btn_stop.clicked.connect(self._stop_session)
 
         self._btn_scan = QPushButton("⊕  SCAN")
         self._btn_scan.setFixedSize(84, _btn_h)
@@ -356,9 +369,15 @@ class ConveyorUIApp(QMainWindow):
             self._scan_status.setStyleSheet("color: #f59e0b; font-size: 11px;")
             return
 
+        # Generate a fresh session ID for each run
+        self._session_id = f"truck_{datetime.date.today()}_{os.urandom(3).hex()}"
+        self._session_lbl.setText(self._session_id)
+
         self._session_running = True
+        self._stop_requested  = False
         self._btn_start.hide()
         self._btn_stop.show()
+        self._btn_stop.setEnabled(True)
         self._scan_status.setText("Starting up...")
         self._scan_status.setStyleSheet("color: #444; font-size: 11px; font-style: italic;")
 
@@ -367,11 +386,6 @@ class ConveyorUIApp(QMainWindow):
                 w.prepare_for_session()
             else:
                 w._combo.setEnabled(False)
-
-        self._bridge.trigger_fired.connect(self._on_trigger)
-        self._bridge.result_ready.connect(self._on_result)
-        self._bridge.system_ready.connect(self._on_system_ready)
-        self._bridge.loading_progress.connect(self._on_loading_progress)
 
         def run():
             self._system = ConveyorSystem(
@@ -383,6 +397,8 @@ class ConveyorUIApp(QMainWindow):
             self._system.start(self._session_id)
             self._bridge.on_system_ready()
             self._system.run_session(self._max_products)
+            self._system.stop()
+            self._bridge.on_session_stopped()
 
         threading.Thread(target=run, daemon=True, name="ConveyorSession").start()
 
@@ -407,6 +423,10 @@ class ConveyorUIApp(QMainWindow):
             self._cam_widgets[cam_idx].set_disconnected()
 
     def _on_system_ready(self):
+        # Guard: if STOP was pressed before models finished loading, skip setup
+        if self._stop_requested:
+            return
+
         self._scan_status.setText("● SESSION ACTIVE")
         self._scan_status.setStyleSheet(
             "color: #22c55e; font-size: 10px; font-weight: 700;"
@@ -435,15 +455,79 @@ class ConveyorUIApp(QMainWindow):
 
         self._btn_scan.show()
 
+    def _stop_session(self):
+        if not self._session_running or self._stop_requested:
+            return
+        self._stop_requested = True
+        self._btn_stop.setEnabled(False)
+        self._btn_scan.hide()
+        self._scan_status.setText("Stopping...")
+        self._scan_status.setStyleSheet("color: #444; font-size: 11px; font-style: italic;")
+
+        # Stop QThreads off the UI thread — both call wait() internally
+        def _teardown():
+            if self._detector:
+                self._detector._running = False
+                self._detector.wait()
+            if self._dispatcher:
+                self._dispatcher._running = False
+                self._dispatcher.wait()
+            if self._system:
+                self._system.request_stop()
+            # system.stop() is called by the session thread after run_session exits
+
+        threading.Thread(target=_teardown, daemon=True, name="SessionTeardown").start()
+
+    def _on_session_stopped(self):
+        # Stop any QThreads that may have been created after _stop_session ran
+        if self._detector and self._detector.isRunning():
+            self._detector._running = False
+        if self._dispatcher and self._dispatcher.isRunning():
+            self._dispatcher._running = False
+
+        self._session_running = False
+        self._stop_requested  = False
+        self._scan_cooldown   = False
+
+        self._btn_stop.hide()
+        self._btn_stop.setEnabled(True)
+        self._btn_scan.hide()
+        self._btn_start.show()
+        self._btn_start.setEnabled(True)
+
+        count = self._cam_widgets[0]._combo.count() - 1
+        if count > 0:
+            self._scan_status.setText(
+                f"{count} camera{'s' if count != 1 else ''} available"
+            )
+            self._scan_status.setStyleSheet(
+                "color: #22c55e; font-size: 11px; font-style: normal;"
+            )
+        else:
+            self._scan_status.setText("No cameras found")
+            self._scan_status.setStyleSheet(
+                "color: #f87171; font-size: 11px; font-style: normal;"
+            )
+
+        for w in self._cam_widgets:
+            w.restore_after_session()
+
+        self._detector  = None
+        self._dispatcher = None
+        self._system    = None
+
+        if self._closing:
+            QTimer.singleShot(0, self.close)
+
     def _do_manual_scan(self):
         if not self._system or self._scan_cooldown:
             return
-        # Respond instantly — snap happens in background thread
         self._scan_cooldown = True
         self._btn_scan.setEnabled(False)
         for w in self._cam_widgets:
-            w.flash_trigger()
-            w.show_scanning()
+            if w._selected_source is not None:
+                w.flash_trigger()
+                w.show_scanning()
         QTimer.singleShot(1200, self._scan_ready)
         threading.Thread(target=self._system.manual_snap, daemon=True).start()
 
@@ -455,20 +539,30 @@ class ConveyorUIApp(QMainWindow):
         if cam_idx < len(self._cam_widgets):
             self._cam_widgets[cam_idx].flash_trigger()
         for w in self._cam_widgets:
-            w.show_scanning()
+            if w._selected_source is not None:
+                w.show_scanning()
 
     def _on_result(self, result: dict):
         for w in self._cam_widgets:
-            w.hide_scanning()
+            if w._selected_source is not None:
+                w.hide_scanning()
         self._result_bar.update_result(result)
 
     # ── Shutdown ──────────────────────────────────────────────────────────────
 
     def closeEvent(self, event):
+        if self._session_running:
+            # Defer close until session teardown completes
+            self._closing = True
+            if not self._stop_requested:
+                self._stop_session()
+            event.ignore()
+            return
+        # No active session — clean up any stray threads and close
         if self._detector:
-            self._detector.stop()
+            self._detector._running = False
         if self._dispatcher:
-            self._dispatcher.stop()
+            self._dispatcher._running = False
         if self._system:
             threading.Thread(target=self._system.stop, daemon=True).start()
         event.accept()
