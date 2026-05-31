@@ -1,73 +1,99 @@
-ading weights: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 824/824 [00:03<00:00, 260.39it/s]
-[System] Qwen/Qwen2.5-VL-3B-Instruct loaded.
-[System] Loading EasyOCR...
-[System] EasyOCR loaded.
-[System] Loading YOLO-World (yolov8m-worldv2.pt)...
-Downloading https://github.com/ultralytics/assets/releases/download/v8.4.0/yolov8m-worldv2.pt to 'yolov8m-worldv2.pt': 100% ━━━━━━━━━━━━ 54.6MB 9.0MB/s 6.1s
-[System] YOLO-World loaded.
-[System] Ready.
+[World] Scanning for label/date/logo regions...
+[World] No regions detected — Florence-2 will read full images
+[Phase 2] Running Florence-2 OCR...
+C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\transformers\generation\configuration_utils.py:677: UserWarning: `num_beams` is set to 1. However, `early_stopping` is set to `True` -- this flag is only used in beam-based generation modes. You should set `num_beams>1` or unset `early_stopping`.
+  warnings.warn(
+[Florence-2] EETERTAINAL USE ONLY
+boat
+100 g
+MOISTURIZER
+LIPO
+MADE IN INDIA
+[Phase 3] Qwen2.5-VL on 1 image(s)...
+[Qwen] Tokenizing 1 image(s)...
+[Qwen] Input tokens: 1281 — running inference...
+C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\transformers\generation\configuration_utils.py:629: UserWarning: `do_sample` is set to `False`. However, `temperature` is set to `1e-06` -- this flag is only used in sample-based generation modes. You should set `do_sample=True` or unset `temperature`.
+  warnings.warn(
+C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\bitsandbytes\backends\cuda\ops.py:468: FutureWarning: _check_is_size will be removed in a future PyTorch release along with guard_size_oblivious.     Use _check(i >= 0) instead.
+  torch._check_is_size(blocksize)
+[Qwen] Done in 9.0s
+Response:
+Brand: boat
+Product: Moisturizer
+Category: Skincare
+Expiry: NONE
+MFG: 2023
+Batch: 456789
 
-[System] All models loaded. Ready to inspect.
+[Debug] Snapshots saved → debug_snapshots/20260531_130946_535/
+[Worker] #3 VLM: boat / Moisturizer / exp=None (15318ms)
+[Conveyor] ► Manual snap #4 — queued for inspection
 
-[Camera-0] Started.
+[Worker] Product #4 (3fc208a81350)
+[Phase 1] Scanning 1 image(s) for barcode...
+[Phase 1] No barcode — moving to Phase 2.
+[World] Scanning for label/date/logo regions...
+[World] No regions detected — Florence-2 will read full images
+[Phase 2] Running Florence-2 OCR...
+[Florence-2] 100 g
+Oil-Free Daily
+Face Moisturizer
+FOR NON GREASY &
+HYDRATED SKIN
+. hyaluronic acid
+ceramide
+multivitamin
+mntologically
+Fragrance
+Free
+derma co
+[Phase 3] Qwen2.5-VL on 1 image(s)...
+[Qwen] Tokenizing 1 image(s)...
+[Qwen] Input tokens: 1304 — running inference...
+[Qwen] Done in 7.5s
+Response:
+Brand: derma co
+Product: Oil-Free Daily Face Moisturizer 100g
+Category: Skincare
+Expiry: NONE
+MFG: NONE
+Batch: NONE
 
-[Conveyor] Session : truck_2026-05-26_7b4f21
-[Conveyor] Cameras : ['http://192.168.0.199:8080/video']
-[Conveyor] Max     : 100 products
+[Debug] Snapshots saved → debug_snapshots/20260531_131008_795/
+[Worker] #4 VLM: derma co / Oil-Free Daily Face Moisturizer 100g / exp=None (10972ms)
+[Conveyor] ► Manual snap #5 — queued for inspection
 
-[Conveyor] Running — UI mode active.
+[Worker] Product #5 (bfc55aa6f865)
+[Phase 1] Scanning 1 image(s) for barcode...
+[Phase 1] No barcode — moving to Phase 2.
+[World] Scanning for label/date/logo regions...
+[World] No regions detected — Florence-2 will read full images
+[Phase 2] Running Florence-2 OCR...
+[Florence-2] 100 g
+Oil-Free Daily
+Face Moisturizer
+OR NON GREASY &
+ORATED SKIN
+HYaluronic acid
+ceramide
+multivitamin
+A
+A+
+Fro
+Firrance
+Foce
+derma co
+[Phase 3] Qwen2.5-VL on 1 image(s)...
+[Qwen] Tokenizing 1 image(s)...
+[Qwen] Input tokens: 1307 — running inference...
+[Qwen] Done in 7.6s
+Response:
+Brand: derma co
+Product: Oil-Free Daily Face Moisturizer 100g
+Category: Skincare
+Expiry: NONE
+MFG: NONE
+Batch: NONE
 
-Exception in thread ConveyorSession:
-Traceback (most recent call last):
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1041, in _bootstrap_inner
-    self.run()
-    ~~~~~~~~^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 992, in run
-    self._target(*self._args, **self._kwargs)
-    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\Codes\AI Detection Model\run_conveyor_ui.py", line 340, in run
-    self._system.run_session(self._max_products)
-    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
-  File "D:\Codes\AI Detection Model\live\conveyor_main.py", line 104, in run_session
-    fired = self._trigger.process_frame(frame)
-  File "D:\Codes\AI Detection Model\live\trigger_detector.py", line 31, in process_frame
-    boxes = self._detect(frame)
-  File "D:\Codes\AI Detection Model\live\trigger_detector.py", line 63, in _detect
-    results = self.model(small, verbose=False, conf=self.conf, device='cpu')
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\engine\model.py", line 177, in __call__
-    return self.predict(source, stream, **kwargs)
-           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\engine\model.py", line 530, in predict
-    self.predictor.setup_model(model=self.model, verbose=is_cli)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\engine\predictor.py", line 401, in setup_model
-    self.model = AutoBackend(
-                 ~~~~~~~~~~~^
-        model=model or self.args.model,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<5 lines>...
-        verbose=verbose,
-        ^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
-    return func(*args, **kwargs)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\autobackend.py", line 217, in __init__
-    self.backend = self._BACKEND_MAP[format](model, **backend_kwargs)
-                   ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\backends\pytorch.py", line 42, in __init__
-    super().__init__(weight, device, fp16)
-    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\backends\base.py", line 54, in __init__
-    self.load_model(weight)
-    ~~~~~~~~~~~~~~~^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\backends\pytorch.py", line 56, in load_model
-    weight = weight.fuse(verbose=self.verbose)
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\ultralytics\nn\tasks.py", line 241, in fuse
-    delattr(m, "bn")  # remove batchnorm
-    ~~~~~~~^^^^^^^^^
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\site-packages\torch\nn\modules\module.py", line 2085, in __delattr__
-    super().__delattr__(name)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^
-AttributeError: 'Conv' object has no attribute 'bn'
-[Camera-0] Reconnecting...
+[Debug] Snapshots saved → debug_snapshots/20260531_131049_565/
+[Worker] #5 VLM: derma co / Oil-Free Daily Face Moisturizer 100g / exp=None (11070ms)
