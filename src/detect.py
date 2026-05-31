@@ -300,6 +300,7 @@ class AIInspectionSystem:
                 from ultralytics import YOLOWorld
                 self.world_detector = YOLOWorld(world_model_id)
                 self.world_detector.set_classes(_WORLD_CLASSES)
+                self.world_detector.to(self.device)   # GPU: ~50ms vs CPU: ~1.5s
                 _prog("YOLO-World ready.")
             except Exception as e:
                 print(f"[Warning] YOLO-World failed to load: {e}")
@@ -391,14 +392,13 @@ class AIInspectionSystem:
     # ── Florence-2 whole-image OCR ─────────────────────────────────────────────
 
     def _read_florence2(self, imgs):
-        """Whole-image OCR via Florence-2. Returns single string with all detected text."""
-        _F2_MAX = 768   # cap long side — full 1280×720 creates ~900 patches (~8s); 768px → ~2s
+        """Whole-image OCR via Florence-2. Returns single string with all detected text.
+        Caller is responsible for passing images at the right resolution:
+          - Label crops: pass as-is (already small, upscaling done upstream)
+          - Full frames: cap at 1024px before calling (see inspect_product)
+        """
         texts = []
         for img in imgs:
-            h, w = img.shape[:2]
-            if max(h, w) > _F2_MAX:
-                s = _F2_MAX / max(h, w)
-                img = cv2.resize(img, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
             pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             inputs = self.florence2_processor(
                 text="<OCR>", images=pil, return_tensors="pt"
@@ -727,89 +727,111 @@ class AIInspectionSystem:
 
         print("[Phase 1] No barcode — moving to Phase 2.")
 
-        # ── YOLO-World: detect label/date/logo regions ─────────────────────────
-        # Single inference pass per image; raw_results reused for debug overlay.
-        regions = {}  # class_name → numpy BGR crop
+        # ── Pick sharpest frame for all downstream processing ──────────────────
+        sharpest_img = max(loaded, key=lambda x: cv2.Laplacian(
+            cv2.cvtColor(x[1], cv2.COLOR_BGR2GRAY), cv2.CV_64F
+        ).var())[1]
+
+        # ── Phase 2a: YOLO-World label detection (GPU, ~50ms) ──────────────────
+        # Goal: find the label/sticker region and zoom into it.
+        # A 200×150 label crop upscaled to 768px gives Florence-2 and Qwen
+        # far better text resolution than a full 1280×720 frame downscaled to 768px.
+        # This is the key fix for "camera not close enough" — we zoom in on the label
+        # regardless of how far the camera is from the product.
+        label_crop = None
+        _LABEL_CLASSES = ["product label", "label sticker", "brand logo"]
         if self.world_detector:
-            print("[World] Scanning for label/date/logo regions...")
-            for i, (_, img) in enumerate(loaded):
-                r, raw_results = self._detect_regions(img)
-                for name, crop in r.items():
-                    if name not in regions:
-                        regions[name] = crop
-                        _dbg(f'2b_world_crop_{name.replace(" ", "_")}.jpg', crop)
-                        print(f"[World] Detected: {name}")
-                # Draw debug overlay using already-computed raw_results — no second inference
-                vis = img.copy()
-                for det in raw_results:
-                    for box in det.boxes:
-                        cls_id = int(box.cls[0])
-                        name = _WORLD_CLASSES[cls_id]
-                        conf_w = float(box.conf[0])
-                        xyxy = box.xyxy[0].cpu().numpy().astype(int)
-                        cv2.rectangle(vis, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (0, 165, 255), 3)
-                        cv2.putText(vis, f"{name} {conf_w:.2f}",
-                                    (xyxy[0], max(0, xyxy[1] - 10)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
-                _dbg(f'2b_world_overview_{i}.jpg', vis)
-            if not regions:
-                print("[World] No regions detected — Florence-2 will read full images")
+            regions, raw_results = self._detect_regions(sharpest_img)
+            if regions:
+                for cls in _LABEL_CLASSES:
+                    if cls in regions:
+                        label_crop = regions[cls]
+                        print(f"[World] Label crop found: {cls} "
+                              f"({label_crop.shape[1]}×{label_crop.shape[0]}px)")
+                        _dbg(f'2b_label_crop.jpg', label_crop)
+                        break
+                if not label_crop:
+                    label_crop = next(iter(regions.values()))
+                    print(f"[World] Using best region: {next(iter(regions.keys()))}")
+            else:
+                print("[World] No regions detected — using full frame")
+            # Debug overlay
+            vis = sharpest_img.copy()
+            for det in raw_results:
+                for box in det.boxes:
+                    xyxy = box.xyxy[0].cpu().numpy().astype(int)
+                    cv2.rectangle(vis, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), (0, 165, 255), 2)
+                    cv2.putText(vis, _WORLD_CLASSES[int(box.cls[0])],
+                                (xyxy[0], max(0, xyxy[1] - 6)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 1)
+            _dbg('2b_world_overview.jpg', vis)
 
-        # ── Phase 2 — Florence-2 whole-image OCR ──────────────────────────────
+        # ── Phase 2b: Prepare OCR image ────────────────────────────────────────
+        # If YOLO found a label crop: scale it to 768px (zoomed in → sharp text).
+        # If no crop: use full frame capped at 1024px (better than 768px for small text).
+        _F2_CROP_SIZE = 768
+        _F2_FULL_SIZE = 1024
+        if label_crop is not None:
+            h, w = label_crop.shape[:2]
+            long_side = max(h, w)
+            if long_side < _F2_CROP_SIZE:
+                # Upscale small crops so text is readable
+                s = _F2_CROP_SIZE / long_side
+                ocr_img = cv2.resize(label_crop, (int(w * s), int(h * s)),
+                                     interpolation=cv2.INTER_CUBIC)
+            elif long_side > _F2_CROP_SIZE:
+                s = _F2_CROP_SIZE / long_side
+                ocr_img = cv2.resize(label_crop, (int(w * s), int(h * s)),
+                                     interpolation=cv2.INTER_AREA)
+            else:
+                ocr_img = label_crop
+            print(f"[OCR] Using label crop at {ocr_img.shape[1]}×{ocr_img.shape[0]}px")
+        else:
+            h, w = sharpest_img.shape[:2]
+            long_side = max(h, w)
+            if long_side > _F2_FULL_SIZE:
+                s = _F2_FULL_SIZE / long_side
+                ocr_img = cv2.resize(sharpest_img, (int(w * s), int(h * s)),
+                                     interpolation=cv2.INTER_AREA)
+            else:
+                ocr_img = sharpest_img
+            print(f"[OCR] Using full frame at {ocr_img.shape[1]}×{ocr_img.shape[0]}px")
+
+        _dbg('3_ocr_input.jpg', ocr_img)
+
+        # ── Phase 2c: Florence-2 OCR ───────────────────────────────────────────
         print("[Phase 2] Running Florence-2 OCR...")
-        _OCR_CLASSES = ["product label", "label sticker", "ingredient list", "nutrition facts panel"]
-        ocr_imgs = [regions[c] for c in _OCR_CLASSES if c in regions]
-        if not ocr_imgs:
-            ocr_imgs = [img for _, img in loaded]
-        ocr_imgs = ocr_imgs[:2]   # 2 best images — sufficient accuracy, A1000-friendly
-
         ocr_text_parts = []
-        florence_text = self._read_florence2(ocr_imgs)
+        florence_text = self._read_florence2([ocr_img])
         if florence_text:
             print(f"[Florence-2] {florence_text[:200]}")
             ocr_text_parts.append(florence_text)
             result["dotted_label_text"] = florence_text
 
-        # ── Phase 2.5: Regex on all OCR text — authoritative for dates/batch ───
+        # ── Phase 2.5: Regex on OCR text — authoritative for dates/batch ───────
         if ocr_text_parts:
             combined = " ".join(ocr_text_parts)
             for k, v in self._extract_dates(combined).items():
                 result[k] = v
 
         # ── Phase 3: Qwen2.5-VL ────────────────────────────────────────────────
-        # Build image list for Qwen — prioritise labelled regions, then sharpest frames.
-        _LABEL_PRIORITY = ["product label", "label sticker", "brand logo",
-                           "nutrition facts panel", "ingredient list"]
-        vlm_imgs = [regions[c] for c in _LABEL_PRIORITY if c in regions]
-
-        if not vlm_imgs:
-            _VLM_MAX = 2
-            if len(loaded) > _VLM_MAX:
-                ranked = sorted(loaded, reverse=True,
-                                key=lambda x: cv2.Laplacian(
-                                    cv2.cvtColor(x[1], cv2.COLOR_BGR2GRAY), cv2.CV_64F
-                                ).var())
-                vlm_imgs = [img for _, img in ranked[:_VLM_MAX]]
-            else:
-                vlm_imgs = [img for _, img in loaded]
+        # Use the label crop for Qwen if found (same zoomed image = consistent context).
+        # Fall back to the sharpest full frame capped at 960px.
+        if label_crop is not None:
+            qwen_img = ocr_img   # reuse the already-scaled label crop
         else:
-            sharpest = max(loaded, key=lambda x: cv2.Laplacian(
-                cv2.cvtColor(x[1], cv2.COLOR_BGR2GRAY), cv2.CV_64F
-            ).var())[1]
-            vlm_imgs.append(sharpest)
+            h, w = sharpest_img.shape[:2]
+            long_side = max(h, w)
+            if long_side > 960:
+                s = 960 / long_side
+                qwen_img = cv2.resize(sharpest_img, (int(w * s), int(h * s)),
+                                      interpolation=cv2.INTER_AREA)
+            else:
+                qwen_img = sharpest_img
 
-        vlm_imgs = vlm_imgs[:2]   # cap at 2 — halves Qwen inference time
-
-        print(f"[Phase 3] Qwen2.5-VL on {len(vlm_imgs)} image(s)...")
-
-        # Convert to PIL directly — no CLAHE (preprocessing distorts text recognition)
-        pil_images = [
-            Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-            for img in vlm_imgs
-        ]
-
-        for i, pil in enumerate(pil_images):
-            _dbg(f'4_qwen_input_{i}.jpg', pil)
+        print(f"[Phase 3] Qwen2.5-VL on 1 image ({qwen_img.shape[1]}×{qwen_img.shape[0]}px)...")
+        pil_images = [Image.fromarray(cv2.cvtColor(qwen_img, cv2.COLOR_BGR2RGB))]
+        _dbg('4_qwen_input.jpg', pil_images[0])
 
         ocr_context = " ".join(ocr_text_parts)
         qwen_data = self._qwen_extract(pil_images, ocr_context=ocr_context)

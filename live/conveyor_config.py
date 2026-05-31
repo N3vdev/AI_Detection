@@ -49,12 +49,15 @@ SHARPNESS_MIN_VARIANCE = 50.0       # Laplacian variance below this = blurry
 # ── Models ─────────────────────────────────────────────────────────────────────
 BARCODE_DETECTOR_MODEL = "models/barcode_detector.pt"
 QWEN_MODEL_ID = "Qwen/Qwen2.5-VL-3B-Instruct"
-FLORENCE2_MODEL_ID = "microsoft/Florence-2-large"
-# On A1000 (4 GB VRAM) swap to: "microsoft/Florence-2-base"  (~600 MB, ~2× faster)
+FLORENCE2_MODEL_ID = "microsoft/Florence-2-base"
+# Florence-2-base: ~500 MB VRAM vs 2 GB for large — critical on 4060/A1000.
+# Florence-2-large takes 2 GB leaving only 0.8 GB free for Qwen inference → 87s slowdown.
+# Florence-2-base leaves 2.3 GB free → Qwen stays on GPU → ~6s per product.
+# Switch to "microsoft/Florence-2-large" only if you have a GPU with 16+ GB VRAM.
 # YOLO-World open-vocabulary region detector (auto-downloads)
-# Set to None to disable — saves ~1.5s per product if it's not detecting anything useful.
-# yolov8s-worldv2.pt = fast (~50ms), yolov8m-worldv2.pt = more accurate (~100ms)
-YOLO_WORLD_MODEL = None
+# yolov8s-worldv2.pt = fast (~50ms on GPU), yolov8m-worldv2.pt = more accurate (~100ms)
+# Set to None only if YOLO-World consistently finds nothing on your specific products.
+YOLO_WORLD_MODEL = "yolov8s-worldv2.pt"
 
 # ── Pipeline ───────────────────────────────────────────────────────────────────
 INSPECTION_QUEUE_MAX = 10
