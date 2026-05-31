@@ -52,8 +52,9 @@ QWEN_MODEL_ID = "Qwen/Qwen2.5-VL-3B-Instruct"
 FLORENCE2_MODEL_ID = "microsoft/Florence-2-large"
 # On A1000 (4 GB VRAM) swap to: "microsoft/Florence-2-base"  (~600 MB, ~2× faster)
 # YOLO-World open-vocabulary region detector (auto-downloads)
+# Set to None to disable — saves ~1.5s per product if it's not detecting anything useful.
 # yolov8s-worldv2.pt = fast (~50ms), yolov8m-worldv2.pt = more accurate (~100ms)
-YOLO_WORLD_MODEL = "yolov8m-worldv2.pt"
+YOLO_WORLD_MODEL = None
 
 # ── Pipeline ───────────────────────────────────────────────────────────────────
 INSPECTION_QUEUE_MAX = 10

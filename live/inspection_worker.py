@@ -150,6 +150,13 @@ class InspectionWorker(threading.Thread):
 
     def stop(self):
         self._stop_event.set()
+        # Explicitly release model references so VRAM is freed before the next session loads
+        if self._ai is not None:
+            del self._ai
+            self._ai = None
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 def _iso(monotonic_ts):

@@ -219,7 +219,9 @@ class AIInspectionSystem:
         # ── WeChat barcode detector (deep-learning, includes super-resolution) ─
         self._wechat_bc = None
         _wechat_dir = os.path.join(os.path.dirname(__file__), '..', 'models', 'wechat_barcode')
-        if os.path.isdir(_wechat_dir) and hasattr(cv2, 'wechat_qrcode'):
+        if (os.path.isdir(_wechat_dir)
+                and hasattr(cv2, 'wechat_qrcode')
+                and hasattr(cv2.wechat_qrcode, 'WeChatQRCode')):
             try:
                 self._wechat_bc = cv2.wechat_qrcode.WeChatQRCode(
                     os.path.join(_wechat_dir, 'detect.prototxt'),
@@ -345,7 +347,7 @@ class AIInspectionSystem:
 
         with torch.inference_mode():
             output_ids = self.qwen_model.generate(
-                **inputs, max_new_tokens=200, do_sample=False
+                **inputs, max_new_tokens=200, do_sample=False, temperature=None,
             )
 
         elapsed = time.time() - t0
