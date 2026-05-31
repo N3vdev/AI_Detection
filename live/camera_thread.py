@@ -19,11 +19,17 @@ class CameraThread(threading.Thread):
         if isinstance(self.camera_index, int):
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.resolution[0])
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.resolution[1])
-            cap.set(cv2.CAP_PROP_FPS, self.fps)
+            try:
+                cap.set(cv2.CAP_PROP_FPS, self.fps)
+            except Exception:
+                pass  # some USB cameras don't support FPS control
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         else:
-            # IP stream — resolution/fps set by the app, buffer size not applicable
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            # IP/MJPEG stream — FPS is controlled by the server, not settable via OpenCV
+            try:
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            except Exception:
+                pass
         return cap
 
     def run(self):

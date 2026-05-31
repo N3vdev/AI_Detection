@@ -361,7 +361,10 @@ class AIInspectionSystem:
 
     def _parse_response(self, response):
         result = {}
-        for line in response.splitlines():
+        lines = [l.strip() for l in response.splitlines() if l.strip()]
+
+        # Primary: labelled lines ("Brand: Derma Co")
+        for line in lines:
             if ':' not in line:
                 continue
             key, _, value = line.partition(':')
@@ -372,14 +375,30 @@ class AIInspectionSystem:
             field = _KEY_MAP.get(key)
             if field and field not in result:
                 result[field] = value
+
+        # Fallback: Qwen sometimes drops labels and outputs 6 bare values in order.
+        # Detect this when we got nothing from the label pass but have 5–6 clean lines.
+        if not result and 5 <= len(lines) <= 7:
+            _ORDER = ['brand', 'product_name', 'product_category',
+                      'expiry_date', 'manufacture_date', 'batch_number']
+            for field, value in zip(_ORDER, lines):
+                value = value.strip().strip('"\'')
+                if value and value.lower() not in _NON_ANSWERS and value.upper() != 'NONE':
+                    result[field] = value
+
         return result
 
     # ── Florence-2 whole-image OCR ─────────────────────────────────────────────
 
     def _read_florence2(self, imgs):
         """Whole-image OCR via Florence-2. Returns single string with all detected text."""
+        _F2_MAX = 768   # cap long side — full 1280×720 creates ~900 patches (~8s); 768px → ~2s
         texts = []
         for img in imgs:
+            h, w = img.shape[:2]
+            if max(h, w) > _F2_MAX:
+                s = _F2_MAX / max(h, w)
+                img = cv2.resize(img, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
             pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             inputs = self.florence2_processor(
                 text="<OCR>", images=pil, return_tensors="pt"
