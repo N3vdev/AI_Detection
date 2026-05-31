@@ -1,38 +1,5 @@
-[Phase 2] Running Florence-2 OCR...
-[Florence-2] ELECTRICAL USE ONLY
-Add contact with eps &
-Keep of use of child & children.
-wanted by Honorable Consumer Ltd. Ltd. & Children.
-Capitol Hydrochloride, Hydrochloric Acid 59, Gurgaon,
-Capidil Hydrochlora
-[Phase 3] Qwen2.5-VL on 1 image(s)...
-[Qwen] Tokenizing 1 image(s)...
-[Qwen] Input tokens: 1510 — running inference...
-[Qwen] Done in 6.1s
-Response:
-Droidream
-Moisturizer
-Skincare
-NONE
-NONE
-779262
-
-[Debug] Snapshots saved → debug_snapshots/20260531_132743_364/
-[Worker] #3 VLM: None / None / exp=None (15049ms)
-
-[Conveyor] Session complete — 3 products captured.
-
-======================================================
-  SESSION SUMMARY
-======================================================
-  Session          : truck_2026-05-31_e40980
-  Total Products   : 3
-  Barcode Found    : 0
-  VLM Inspected    : 3
-  Incomplete       : 1
-======================================================
 [Conveyor] Draining inspection queue...
-[Camera-0] Stopped.
+[Camera-1] Stopped.
 [Conveyor] Shutdown complete.
 [Trigger] Loading yolo11n.pt on CPU...
 [Trigger] Ready.
@@ -42,10 +9,10 @@ NONE
 [System] Loading barcode detector...
 [System] Barcode detector ready.
 [System] Loading Qwen VLM processor...
-[System] Free VRAM: 4.9 GB
+[System] Free VRAM: 4.8 GB
 [System] 4-bit quantization enabled (low VRAM).
 [System] Loading Qwen VLM model  (largest step)...
-Loading checkpoint shards: 100%|██████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:03<00:00,  1.83s/it]
+Loading checkpoint shards: 100%|██████████████████████████████████████████████████████████████████████████████████████████████| 2/2 [00:05<00:00,  2.51s/it]
 [System] Qwen VLM ready.
 [System] Loading Florence-2 OCR...
 [System] Florence-2 loaded.
@@ -54,34 +21,51 @@ Loading checkpoint shards: 100%|████████████████
 
 [System] All models loaded. Ready to inspect.
 
+[Camera-1] Started.
 
-[Conveyor] Session : truck_2026-05-31_b38544
+[Conveyor] Session : truck_2026-05-31_515ad0
 [Conveyor] Cameras : ['http://192.168.0.199:8080/video']
 [Conveyor] Max     : 100 products
 
 [Conveyor] Running — UI mode active.
 
-Exception in thread Camera-0:
-Traceback (most recent call last):
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1041, in _bootstrap_inner
-    self.run()
-    ~~~~~~~~^^
-  File "D:\Codes\AI Detection Model\live\camera_thread.py", line 30, in run
-    self._cap = self._open()
-                ~~~~~~~~~~^^
-  File "D:\Codes\AI Detection Model\live\camera_thread.py", line 22, in _open
-    cap.set(cv2.CAP_PROP_FPS, self.fps)
-    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-cv2.error: Unknown C++ exception from OpenCV code
-Exception in thread Camera-1:
-Traceback (most recent call last):
-  File "C:\Users\nevin\AppData\Local\Programs\Python\Python313\Lib\threading.py", line 1041, in _bootstrap_inner
-    self.run()
-    ~~~~~~~~^^
-  File "D:\Codes\AI Detection Model\live\camera_thread.py", line 30, in run
-    self._cap = self._open()
-                ~~~~~~~~~~^^
-  File "D:\Codes\AI Detection Model\live\camera_thread.py", line 22, in _open
-    cap.set(cv2.CAP_PROP_FPS, self.fps)
-    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-cv2.error: Unknown C++ exception from OpenCV code
+[Camera-0] Started.
+[Camera-0] Reconnecting...
+[Camera-1] Reconnecting...
+[Conveyor] ► Manual snap #1 — queued for inspection
+
+[Worker] Product #1 (c09b74f4d7b2)
+[Phase 1] Scanning 2 image(s) for barcode...
+[Phase 1] No barcode — moving to Phase 2.
+[Phase 2] Running Florence-2 OCR...
+[Florence-2] GEO
+RTX
+Using droldream.app
+Cll-Free Daily
+Face Moisturizer
+derma FOR EXTERNAL USE ONLY
+Marketor By
+For Ques Contact
+Email:
+Visit:
+Manufactured By
+SIDCUL
+Net Content :
+100 g
+MOIST
+Batch No.
+Why Date :
+[Phase 3] Qwen2.5-VL on 2 image(s)...
+[Qwen] Tokenizing 2 image(s)...
+[Qwen] Input tokens: 2284 — running inference...
+[Qwen] Done in 87.1s
+Response:
+Brand: derma
+Product: Oil-Free Daily Face Moisturizer
+Category: Skincare
+Expiry: 02/2028
+MFG: 01/2028
+Batch: AB68BCQ1
+
+[Debug] Snapshots saved → debug_snapshots/20260531_134034_956/
+[Worker] #1 VLM: derma / Oil-Free Daily Face Moisturizer / exp=02/2028 (99622ms)
