@@ -33,18 +33,13 @@ TRIGGER_ENTER_FRAMES = 3             # Consecutive detections to confirm product
 TRIGGER_LEAVE_FRAMES = 8             # Consecutive empty frames to confirm product left
 TRIGGER_AUTO = False                  # True = YOLO fires automatically; False = manual SNAP only
 
-# COCO class IDs the trigger/display YOLO will respond to.
-# Excludes: person (0), vehicles (1-8), outdoor (9-13), animals (14-23),
-#           sports gear (29-38), furniture (56-62), large appliances (68-72).
-# Keeps anything that could be a packaged product on a conveyor belt.
-# Add or remove IDs here to tune what counts as a "product".
-TRIGGER_CLASSES = [
-    24, 26, 27, 28,                          # backpack, handbag, tie, suitcase
-    39, 40, 41, 42, 43, 44, 45,              # bottle, wine glass, cup, fork, knife, spoon, bowl
-    46, 47, 48, 49, 50, 51, 52, 53, 54, 55, # food items (banana → cake)
-    64, 65, 67,                              # mouse, remote, cell phone
-    73, 74, 75, 76, 77, 78, 79,             # book, clock, vase, scissors, teddy bear, hair drier, toothbrush
-]
+# Horizontal trigger line Y position (0.0=top of frame, 1.0=bottom, None=legacy presence trigger)
+# When set, the trigger fires when the product's bounding-box center crosses this Y fraction.
+# Aim the camera so this line falls where barcodes/labels are clearly visible.
+TRIGGER_LINE_Y = 0.55
+
+# COCO class filter — None = detect any object (recommended; no product type is missed).
+TRIGGER_CLASSES = None
 
 # ── Frame Buffer & Sync ────────────────────────────────────────────────────────
 FRAME_BUFFER_SIZE = 90              # Frames per camera buffer (3s at 30fps)
@@ -53,8 +48,9 @@ SHARPNESS_MIN_VARIANCE = 50.0       # Laplacian variance below this = blurry
 
 # ── Models ─────────────────────────────────────────────────────────────────────
 BARCODE_DETECTOR_MODEL = "models/barcode_detector.pt"
-DOTTED_OCR_MODEL = "models/dotted_ocr_retrained.pth"
 QWEN_MODEL_ID = "Qwen/Qwen2.5-VL-3B-Instruct"
+FLORENCE2_MODEL_ID = "microsoft/Florence-2-large"
+# On A1000 (4 GB VRAM) swap to: "microsoft/Florence-2-base"  (~600 MB, ~2× faster)
 # YOLO-World open-vocabulary region detector (auto-downloads)
 # yolov8s-worldv2.pt = fast (~50ms), yolov8m-worldv2.pt = more accurate (~100ms)
 YOLO_WORLD_MODEL = "yolov8m-worldv2.pt"

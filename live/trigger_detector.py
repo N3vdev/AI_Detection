@@ -10,7 +10,8 @@ class TriggerDetector:
         min_box_area=0.04,
         enter_frames=3,
         leave_frames=8,
-        classes=None,   # list of COCO class IDs to detect; None = all 80 classes
+        classes=None,           # list of COCO class IDs; None = all classes
+        trigger_line_y=None,    # normalized Y (0–1) for line-crossing mode; None = legacy presence
     ):
         print(f"[Trigger] Loading {yolo_model_path} on CPU...")
         self.model = YOLO(yolo_model_path)
@@ -22,7 +23,14 @@ class TriggerDetector:
         self.enter_frames = enter_frames
         self.leave_frames = leave_frames
         self.classes = classes
+        self.last_line_y = trigger_line_y   # exposed for UI overlay
 
+        self._line_y = trigger_line_y
+
+        # Line-crossing state
+        self._prev_center_y = None
+
+        # Legacy presence-based state
         self._product_in_frame = False
         self._presence_count = 0
         self._absence_count = 0
@@ -31,8 +39,25 @@ class TriggerDetector:
 
     def process_frame(self, frame):
         boxes = self._detect(frame)
-        has_object = len(boxes) > 0
         self.last_boxes = boxes
+
+        # ── Line-crossing mode ─────────────────────────────────────────────────
+        if self._line_y is not None:
+            if not boxes:
+                self._prev_center_y = None
+                return False
+            # Use the largest detected box
+            largest = max(boxes, key=lambda b: (b[2] - b[0]) * (b[3] - b[1]))
+            center_y = (largest[1] + largest[3]) / 2
+            crossed = (
+                self._prev_center_y is not None
+                and self._prev_center_y < self._line_y <= center_y
+            )
+            self._prev_center_y = center_y
+            return crossed
+
+        # ── Legacy presence-based mode ─────────────────────────────────────────
+        has_object = len(boxes) > 0
 
         if not self._product_in_frame:
             if has_object:
@@ -83,4 +108,5 @@ class TriggerDetector:
         self._presence_count = 0
         self._absence_count = 0
         self._post_detect_streak = 0
+        self._prev_center_y = None
         self.last_boxes = []

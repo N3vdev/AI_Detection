@@ -45,6 +45,7 @@ class ConveyorSystem:
             enter_frames=config.TRIGGER_ENTER_FRAMES,
             leave_frames=config.TRIGGER_LEAVE_FRAMES,
             classes=getattr(config, 'TRIGGER_CLASSES', None),
+            trigger_line_y=getattr(config, 'TRIGGER_LINE_Y', None),
         )
         self._inspection_queue = queue.Queue(maxsize=config.INSPECTION_QUEUE_MAX)
         self._writer = ResultWriter(config.DB_PATH, config.JSON_LOG_PATH)
@@ -144,6 +145,12 @@ class ConveyorSystem:
                     try:
                         preview = cv2.resize(frame, (pw, ph))
                         flashing = (time.monotonic() - last_fired_ts) < 0.5
+
+                        # Draw trigger line when in line-crossing mode
+                        if self._trigger.last_line_y is not None:
+                            ly = int(self._trigger.last_line_y * ph)
+                            line_color = (0, 255, 0) if flashing else (60, 60, 60)
+                            cv2.line(preview, (0, ly), (pw, ly), line_color, 1)
 
                         for (x1n, y1n, x2n, y2n) in self._trigger.last_boxes:
                             bx1 = int(x1n * pw)

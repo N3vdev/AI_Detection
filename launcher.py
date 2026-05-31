@@ -35,7 +35,8 @@ LOG_FILE   = ENV_DIR / "setup.log"
 REQS_FILE  = APP_DIR / "requirements_app.txt"
 MAIN_APP   = APP_DIR / "run_conveyor_ui.py"
 
-QWEN_MODEL  = "Qwen/Qwen2.5-VL-3B-Instruct"
+QWEN_MODEL      = "Qwen/Qwen2.5-VL-3B-Instruct"
+FLORENCE2_MODEL = "microsoft/Florence-2-large"
 
 
 def _bundled(name: str) -> Path:
@@ -304,6 +305,28 @@ def do_setup(ui: "SetupUI | None", log_fn):
                 log("[Warning] Qwen download failed — the app will re-attempt on first inspection.")
             else:
                 log("Qwen model ready.")
+
+        # ── Florence-2 OCR model ──────────────────────────────────────────────
+        f2_cache = default_hf / "hub" / ("models--" + FLORENCE2_MODEL.replace("/", "--"))
+        hf_env = os.environ.copy()
+        hf_env["HF_HOME"] = effective_hf_home
+        hf_env["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+        if f2_cache.exists():
+            log(f"Florence-2 found in cache — skipping download.")
+        else:
+            if ui: ui.step("4 / 4  —  Downloading Florence-2  (~1.5 GB)...", 88)
+            log(f"Downloading {FLORENCE2_MODEL} ...")
+            r = _run(
+                [str(_py_exe()), "-c",
+                 f"from huggingface_hub import snapshot_download; "
+                 f"snapshot_download('{FLORENCE2_MODEL}'); "
+                 f"print('[OK] Florence-2 download complete')"],
+                env=hf_env, log=log,
+            )
+            if r.returncode != 0:
+                log("[Warning] Florence-2 download failed — will retry on first inspection run.")
+            else:
+                log("Florence-2 ready.")
 
         log("YOLO models will be downloaded automatically on first inspection run.")
 

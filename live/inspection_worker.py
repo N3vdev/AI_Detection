@@ -41,7 +41,7 @@ class InspectionWorker(threading.Thread):
             barcode_model_path=self.config.BARCODE_DETECTOR_MODEL,
             qwen_model_id=self.config.QWEN_MODEL_ID,
             world_model_id=self.config.YOLO_WORLD_MODEL,
-            crnn_model_path=self.config.DOTTED_OCR_MODEL,
+            florence2_model_id=self.config.FLORENCE2_MODEL_ID,
             debug=self.config.SAVE_DEBUG_SNAPSHOTS,
             on_progress=self._on_progress,
         )

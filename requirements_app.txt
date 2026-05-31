@@ -20,8 +20,12 @@ numpy
 ultralytics
 pyzbar
 
-# ── OCR ───────────────────────────────────────────────────────────────────────
-easyocr
+# ── Florence-2 OCR dependencies ──────────────────────────────────────────────
+timm>=0.9.16
+einops
+
+# ── Barcode (ZXing C++ — best accuracy on distant/blurry barcodes) ────────────
+zxingcpp
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 PyQt6
