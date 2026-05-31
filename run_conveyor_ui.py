@@ -16,6 +16,10 @@ import argparse
 import json
 import cv2
 
+# Set up file logging before anything else prints
+from live.logger import setup_logging as _setup_logging
+_setup_logging()
+
 PREFS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "conveyor_ui", "camera_prefs.json")
 
 def _load_prefs() -> dict:
